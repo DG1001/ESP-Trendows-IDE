@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MicroPython Web IDE</title>
+    <!-- Monaco Editor -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs/loader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs/editor/editor.main.nls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs/editor/editor.main.js"></script>
     <style>
         * {
             margin: 0;
@@ -106,17 +110,10 @@
             background: #1e1e1e;
         }
 
-        .editor {
+        #editor-container {
             flex: 1;
-            background: #1e1e1e;
-            border: none;
-            color: #d4d4d4;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            padding: 10px;
-            resize: none;
-            outline: none;
-            line-height: 1.4;
+            position: relative;
+            overflow: hidden;
         }
 
         .terminal-panel {
@@ -247,22 +244,9 @@
             <div class="file-tabs">
                 <button class="tab active" data-file="main.py">main.py</button>
             </div>
-            <textarea class="editor" id="editor" placeholder="# Dein MicroPython Code hier...
-print('Hello ESP32!')
-
-# Beispiel: LED blinken
-from machine import Pin
-import time
-
-led = Pin(2, Pin.OUT)  # GPIO 2 für eingebaute LED
-
-for i in range(10):
-    led.on()
-    time.sleep(0.5)
-    led.off()
-    time.sleep(0.5)
-    print(f'Blink {i+1}')
-"></textarea>
+            <div id="editor-container">
+                <div id="editor" style="height:100%"></div>
+            </div>
         </div>
 
         <div class="terminal-panel">
@@ -289,13 +273,14 @@ for i in range(10):
 
     <script>
         class MicroPythonIDE {
-            constructor() {
+            constructor(editor) {
                 this.port = null;
                 this.reader = null;
                 this.writer = null;
                 this.isConnected = false;
                 this.currentFile = 'main.py';
-                this.files = {'main.py': document.getElementById('editor').value};
+                this.editor = editor;
+                this.files = {'main.py': this.editor.getValue()};
                 
                 this.initializeEventListeners();
                 this.checkWebSerialSupport();
@@ -329,8 +314,8 @@ for i in range(10):
                 });
 
                 // Editor Änderungen speichern
-                document.getElementById('editor').addEventListener('input', () => {
-                    this.files[this.currentFile] = document.getElementById('editor').value;
+                this.editor.onDidChangeModelContent(() => {
+                    this.files[this.currentFile] = this.editor.getValue();
                 });
             }
 
@@ -413,7 +398,7 @@ for i in range(10):
                         if (buffer.includes('===FILE_CONTENT_END===')) {
                             const content = this.parseFileContent(buffer);
                             if (content) {
-                                document.getElementById('editor').value = content;
+                                this.editor.setValue(content);
                                 this.files[this.currentFile] = content;
                             }
                             buffer = '';
@@ -448,7 +433,7 @@ for i in range(10):
             async runCode() {
                 if (!this.isConnected) return;
                 
-                const code = document.getElementById('editor').value;
+                const code = this.editor.getValue();
                 this.addToTerminal('\n=== Code wird ausgeführt ===\n');
                 
                 // Paste-Modus für mehrzeiligen Code
@@ -482,7 +467,7 @@ for i in range(10):
                 const filename = document.getElementById('filenameInput').value;
                 if (!filename) return;
                 
-                const code = document.getElementById('editor').value;
+                const code = this.editor.getValue();
                 const chunkSize = 200; // Noch kleinere Chunk-Größe
                 const totalChunks = Math.ceil(code.length / chunkSize);
                 
@@ -562,7 +547,7 @@ except Exception as e:
                 
                 // Datei im Editor anzeigen
                 this.currentFile = filename;
-                document.getElementById('editor').value = '';
+                this.editor.setValue('');
             }
 
             parseFileContent(text) {
@@ -676,8 +661,43 @@ print('===FILELIST_END===')
             document.getElementById('filenameModal').style.display = 'none';
         }
 
-        // IDE initialisieren
-        const ide = new MicroPythonIDE();
+        // Monaco Editor initialisieren
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs' }});
+        
+        require(['vs/editor/editor.main'], function() {
+            const editor = monaco.editor.create(document.getElementById('editor'), {
+                value: [
+                    "# Dein MicroPython Code hier...",
+                    "print('Hello ESP32!')",
+                    "",
+                    "# Beispiel: LED blinken",
+                    "from machine import Pin",
+                    "import time",
+                    "",
+                    "led = Pin(2, Pin.OUT)  # GPIO 2 für eingebaute LED",
+                    "",
+                    "for i in range(10):",
+                    "    led.on()",
+                    "    time.sleep(0.5)",
+                    "    led.off()",
+                    "    time.sleep(0.5)",
+                    "    print(f'Blink {i+1}')"
+                ].join('\n'),
+                language: 'python',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: 'on',
+                roundedSelection: true,
+                scrollBeyondLastLine: false,
+                renderWhitespace: 'selection',
+                tabSize: 4
+            });
+
+            // IDE initialisieren und Editor übergeben
+            const ide = new MicroPythonIDE(editor);
+        });
     </script>
 </body>
 </html>
