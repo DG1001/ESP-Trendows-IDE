@@ -483,23 +483,45 @@ for i in range(10):
                 if (!filename) return;
                 
                 const code = document.getElementById('editor').value;
+                const chunkSize = 500; // Zeichen pro Chunk
+                const totalChunks = Math.ceil(code.length / chunkSize);
                 
-                this.addToTerminal(`\n📤 Lade ${filename} hoch...\n`);
+                this.addToTerminal(`\n📤 Lade ${filename} hoch (${code.length} Zeichen, ${totalChunks} Teile)...\n`);
                 
-                // Datei erstellen/überschreiben
-                const uploadCode = `
-with open('${filename}', 'w') as f:
-    f.write(${JSON.stringify(code)})
-print('Datei ${filename} gespeichert')
-`;
-                
-                await this.sendRawCommand('\x05'); // Paste mode
-                await new Promise(resolve => setTimeout(resolve, 100));
-                await this.sendRawCommand(uploadCode);
-                await this.sendRawCommand('\x04'); // Execute
-                
-                closeModal();
-                setTimeout(() => this.listFiles(), 1000);
+                try {
+                    // Datei erstellen
+                    await this.sendRawCommand('\x05');
+                    await this.sendRawCommand(`f=open('${filename}','w')\r\n`);
+                    await this.sendRawCommand('\x04');
+                    
+                    // Code in Chunks hochladen
+                    for (let i = 0; i < totalChunks; i++) {
+                        const chunk = code.substring(i * chunkSize, (i + 1) * chunkSize);
+                        const escapedChunk = chunk.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                        
+                        await this.sendRawCommand('\x05');
+                        await this.sendRawCommand(`f.write('${escapedChunk}')\r\n`);
+                        await this.sendRawCommand('\x04');
+                        
+                        // Fortschritt anzeigen
+                        const progress = Math.round(((i + 1) / totalChunks) * 100);
+                        this.addToTerminal(`\r🔼 Hochgeladen: ${progress}% (${(i + 1) * chunkSize}/${code.length})`);
+                        await new Promise(resolve => setTimeout(resolve, 50)); // Kleine Pause
+                    }
+                    
+                    // Datei schließen
+                    await this.sendRawCommand('\x05');
+                    await this.sendRawCommand('f.close()\r\n');
+                    await this.sendRawCommand('\x04');
+                    
+                    this.addToTerminal(`\n✅ ${filename} erfolgreich hochgeladen!\n`);
+                    
+                } catch (error) {
+                    this.addToTerminal(`\n❌ Fehler beim Hochladen: ${error.message}\n`);
+                } finally {
+                    closeModal();
+                    setTimeout(() => this.listFiles(), 1000);
+                }
             }
 
             async loadFile(filename) {
