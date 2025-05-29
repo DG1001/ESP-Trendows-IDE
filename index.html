@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroPython Web IDE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            background: #2d2d30;
+            padding: 10px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #1177bb;
+        }
+
+        .btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .btn.danger {
+            background: #d73a49;
+        }
+
+        .btn.danger:hover {
+            background: #e85565;
+        }
+
+        .status {
+            margin-left: auto;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .status.connected {
+            background: #28a745;
+        }
+
+        .status.disconnected {
+            background: #dc3545;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .editor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #3e3e42;
+        }
+
+        .file-tabs {
+            background: #2d2d30;
+            padding: 0;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+        }
+
+        .tab {
+            background: #3c3c3c;
+            border: none;
+            color: #d4d4d4;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-right: 1px solid #3e3e42;
+            font-size: 12px;
+        }
+
+        .tab.active {
+            background: #1e1e1e;
+        }
+
+        .editor {
+            flex: 1;
+            background: #1e1e1e;
+            border: none;
+            color: #d4d4d4;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding: 10px;
+            resize: none;
+            outline: none;
+            line-height: 1.4;
+        }
+
+        .terminal-panel {
+            width: 40%;
+            display: flex;
+            flex-direction: column;
+            background: #0c0c0c;
+        }
+
+        .terminal-header {
+            background: #2d2d30;
+            padding: 8px 12px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .terminal {
+            flex: 1;
+            background: #0c0c0c;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 10px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .terminal-input {
+            background: #0c0c0c;
+            border: none;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 10px;
+            outline: none;
+            border-top: 1px solid #3e3e42;
+        }
+
+        .file-browser {
+            width: 200px;
+            background: #252526;
+            border-right: 1px solid #3e3e42;
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-item:hover {
+            background: #2a2d2e;
+        }
+
+        .file-item.selected {
+            background: #094771;
+        }
+
+        .file-size {
+            font-size: 10px;
+            color: #888;
+        }
+
+        .file-actions {
+            display: none;
+            gap: 4px;
+        }
+
+        .file-item:hover .file-actions {
+            display: flex;
+        }
+
+        .file-action-btn {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 2px;
+            font-size: 10px;
+        }
+
+        .file-action-btn:hover {
+            background: #555;
+            color: white;
+        }
+
+        .loading {
+            opacity: 0.5;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: #2d2d30;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+            color: #d4d4d4;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            color: #d4d4d4;
+            border-radius: 4px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #555;
+            border-top: 2px solid #0e639c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button class="btn" id="connectBtn">Mit ESP32 verbinden</button>
+        <button class="btn" id="runBtn" disabled>Ausführen (F5)</button>
+        <button class="btn" id="stopBtn" disabled>Stopp</button>
+        <button class="btn" id="uploadBtn" disabled>Hochladen</button>
+        <button class="btn" id="listFilesBtn" disabled>Dateien auflisten</button>
+        <button class="btn danger" id="softResetBtn" disabled>Soft Reset</button>
+        <div class="status disconnected" id="status">Nicht verbunden</div>
+    </div>
+
+    <div class="main-content">
+        <div class="file-browser">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4>Dateien auf ESP32</h4>
+                <button class="btn" id="refreshFilesBtn" disabled title="Dateien neu laden" style="padding: 4px 8px; font-size: 10px;">🔄</button>
+            </div>
+            <div id="fileList">
+                <div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">
+                    Verbinde mit ESP32 um Dateien zu sehen
+                </div>
+            </div>
+        </div>
+
+        <div class="editor-panel">
+            <div class="file-tabs">
+                <button class="tab active" data-file="main.py">main.py</button>
+            </div>
+            <textarea class="editor" id="editor" placeholder="# Dein MicroPython Code hier...
+print('Hello ESP32!')
+
+# Beispiel: LED blinken
+from machine import Pin
+import time
+
+led = Pin(2, Pin.OUT)  # GPIO 2 für eingebaute LED
+
+for i in range(10):
+    led.on()
+    time.sleep(0.5)
+    led.off()
+    time.sleep(0.5)
+    print(f'Blink {i+1}')
+"></textarea>
+        </div>
+
+        <div class="terminal-panel">
+            <div class="terminal-header">
+                <span>REPL Terminal</span>
+                <button class="btn" id="clearTerminalBtn">Löschen</button>
+            </div>
+            <div class="terminal" id="terminal">Bereit für Verbindung...\n</div>
+            <input class="terminal-input" id="terminalInput" placeholder=">>> MicroPython Befehl eingeben..." disabled>
+        </div>
+    </div>
+
+    <!-- Modal für Dateinamen -->
+    <div class="modal" id="filenameModal">
+        <div class="modal-content">
+            <h3>Datei speichern als:</h3>
+            <input type="text" id="filenameInput" placeholder="dateiname.py">
+            <div style="margin-top: 15px;">
+                <button class="btn" id="saveFileBtn">Speichern</button>
+                <button class="btn" onclick="closeModal()">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class MicroPythonIDE {
+            constructor() {
+                this.port = null;
+                this.reader = null;
+                this.writer = null;
+                this.isConnected = false;
+                this.currentFile = 'main.py';
+                this.files = {'main.py': document.getElementById('editor').value};
+                this.espFiles = []; // Dateien auf dem ESP32
+                this.selectedFile = null;
+                this.terminalBuffer = ''; // Puffer für Terminal-Text
+                this.expectingFileList = false;
+                this.expectingFileContent = null;
+                
+                this.initializeEventListeners();
+                this.checkWebSerialSupport();
+            }
+
+            checkWebSerialSupport() {
+                if (!('serial' in navigator)) {
+                    this.addToTerminal('❌ Web Serial API wird nicht unterstützt. Bitte verwende Chrome oder Edge.\n');
+                }
+            }
+
+            initializeEventListeners() {
+                document.getElementById('connectBtn').addEventListener('click', () => this.toggleConnection());
+                document.getElementById('runBtn').addEventListener('click', () => this.runCode());
+                document.getElementById('stopBtn').addEventListener('click', () => this.stopExecution());
+                document.getElementById('uploadBtn').addEventListener('click', () => this.showUploadModal());
+                document.getElementById('listFilesBtn').addEventListener('click', () => this.listFiles());
+                document.getElementById('refreshFilesBtn').addEventListener('click', () => this.listFiles());
+                document.getElementById('softResetBtn').addEventListener('click', () => this.softReset());
+                document.getElementById('clearTerminalBtn').addEventListener('click', () => this.clearTerminal());
+                document.getElementById('terminalInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.sendCommand();
+                });
+                document.getElementById('saveFileBtn').addEventListener('click', () => this.uploadFile());
+
+                // F5 für Ausführen
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'F5') {
+                        e.preventDefault();
+                        if (this.isConnected) this.runCode();
+                    }
+                });
+
+                // Editor Änderungen speichern
+                document.getElementById('editor').addEventListener('input', () => {
+                    this.files[this.currentFile] = document.getElementById('editor').value;
+                });
+            }
+
+            async toggleConnection() {
+                if (this.isConnected) {
+                    await this.disconnect();
+                } else {
+                    await this.connect();
+                }
+            }
+
+            async connect() {
+                try {
+                    this.addToTerminal('🔌 Verbinde mit ESP32...\n');
+                    
+                    this.port = await navigator.serial.requestPort();
+                    await this.port.open({ baudRate: 115200 });
+
+                    this.reader = this.port.readable.getReader();
+                    this.writer = this.port.writable.getWriter();
+
+                    this.isConnected = true;
+                    this.updateUI();
+                    
+                    this.addToTerminal('✅ Erfolgreich verbunden!\n');
+                    
+                    // REPL starten
+                    await this.sendRawCommand('\x03\x03\x02'); // Ctrl+C, Ctrl+C, Ctrl+B
+                    
+                    this.startReading();
+                    
+                    // Automatisch Dateien laden
+                    setTimeout(() => this.listFiles(), 1000);
+                    
+                } catch (error) {
+                    this.addToTerminal(`❌ Verbindungsfehler: ${error.message}\n`);
+                }
+            }
+
+            async disconnect() {
+                try {
+                    if (this.reader) {
+                        await this.reader.cancel();
+                        this.reader.releaseLock();
+                    }
+                    if (this.writer) {
+                        this.writer.releaseLock();
+                    }
+                    if (this.port) {
+                        await this.port.close();
+                    }
+                    
+                    this.isConnected = false;
+                    this.updateUI();
+                    this.addToTerminal('🔌 Verbindung getrennt\n');
+                    
+                } catch (error) {
+                    this.addToTerminal(`❌ Fehler beim Trennen: ${error.message}\n`);
+                }
+            }
+
+            async startReading() {
+                try {
+                    while (this.isConnected) {
+                        const { value, done } = await this.reader.read();
+                        if (done) break;
+                        
+                        const text = new TextDecoder().decode(value);
+                        this.addToTerminal(text);
+                    }
+                } catch (error) {
+                    if (this.isConnected) {
+                        this.addToTerminal(`❌ Lesefehler: ${error.message}\n`);
+                    }
+                }
+            }
+
+            async sendRawCommand(command) {
+                if (!this.writer) return;
+                
+                const encoder = new TextEncoder();
+                await this.writer.write(encoder.encode(command));
+            }
+
+            async sendCommand() {
+                const input = document.getElementById('terminalInput');
+                const command = input.value;
+                
+                if (!command.trim()) return;
+                
+                this.addToTerminal(`>>> ${command}\n`);
+                await this.sendRawCommand(command + '\r\n');
+                
+                input.value = '';
+            }
+
+            async runCode() {
+                if (!this.isConnected) return;
+                
+                const code = document.getElementById('editor').value;
+                this.addToTerminal('\n=== Code wird ausgeführt ===\n');
+                
+                // Paste-Modus für mehrzeiligen Code
+                await this.sendRawCommand('\x05'); // Ctrl+E (paste mode)
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await this.sendRawCommand(code);
+                await this.sendRawCommand('\x04'); // Ctrl+D (execute)
+            }
+
+            async stopExecution() {
+                if (!this.isConnected) return;
+                
+                this.addToTerminal('\n🛑 Stoppe Ausführung...\n');
+                await this.sendRawCommand('\x03'); // Ctrl+C
+            }
+
+            async softReset() {
+                if (!this.isConnected) return;
+                
+                this.addToTerminal('\n🔄 Soft Reset...\n');
+                await this.sendRawCommand('\x04'); // Ctrl+D
+            }
+
+            showUploadModal() {
+                document.getElementById('filenameModal').style.display = 'block';
+                document.getElementById('filenameInput').value = this.currentFile;
+                document.getElementById('filenameInput').focus();
+            }
+
+            async uploadFile() {
+                const filename = document.getElementById('filenameInput').value;
+                if (!filename) return;
+                
+                const code = document.getElementById('editor').value;
+                
+                this.addToTerminal(`\n📤 Lade ${filename} hoch...\n`);
+                
+                // Datei erstellen/überschreiben
+                const uploadCode = `
+with open('${filename}', 'w') as f:
+    f.write(${JSON.stringify(code)})
+print('Datei ${filename} gespeichert')
+`;
+                
+                await this.sendRawCommand('\x05'); // Paste mode
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await this.sendRawCommand(uploadCode);
+                await this.sendRawCommand('\x04'); // Execute
+                
+                closeModal();
+                setTimeout(() => this.listFiles(), 1000);
+            }
+
+            async listFiles() {
+                if (!this.isConnected) return;
+                
+                this.addToTerminalDirect('\n📁 Dateien werden aufgelistet...\n');
+                
+                // Puffer und Status zurücksetzen
+                this.terminalBuffer = '';
+                this.expectingFileList = true;
+                
+                // Versteckter Modus - sammle Dateien ohne Terminal-Ausgabe
+                const listCode = `
+import os
+import json
+files = []
+for file in os.listdir():
+    try:
+        stat = os.stat(file)
+        size = stat[6]
+        is_dir = stat[0] & 0x4000
+        files.append({
+            'name': file,
+            'size': size,
+            'is_dir': bool(is_dir)
+        })
+    except:
+        files.append({
+            'name': file,
+            'size': 0,
+            'is_dir': True
+        })
+print('__FILES_START__')
+print(json.dumps(files))
+print('__FILES_END__')
+`;
+                
+                await this.sendRawCommand('\x05');
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await this.sendRawCommand(listCode);
+                await this.sendRawCommand('\x04');
+            }
+
+            parseFileList(text) {
+                const startMarker = '__FILES_START__';
+                const endMarker = '__FILES_END__';
+                
+                const startIndex = text.indexOf(startMarker);
+                const endIndex = text.indexOf(endMarker);
+                
+                if (startIndex !== -1 && endIndex !== -1) {
+                    const jsonStart = startIndex + startMarker.length;
+                    const jsonData = text.substring(jsonStart, endIndex).trim();
+                    
+                    try {
+                        const files = JSON.parse(jsonData);
+                        this.espFiles = files;
+                        this.updateFileList();
+                        this.addToTerminal(`✅ ${files.length} Dateien gefunden\n`);
+                    } catch (error) {
+                        this.addToTerminal(`❌ Fehler beim Parsen der Dateiliste: ${error.message}\n`);
+                    }
+                    
+                    this.expectingFileList = false;
+                    return true;
+                }
+                return false;
+            }
+
+            updateFileList() {
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '';
+                
+                if (this.espFiles.length === 0) {
+                    fileList.innerHTML = '<div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">Keine Dateien gefunden</div>';
+                    return;
+                }
+                
+                this.espFiles
+                    .sort((a, b) => {
+                        // Ordner zuerst, dann nach Name
+                        if (a.is_dir && !b.is_dir) return -1;
+                        if (!a.is_dir && b.is_dir) return 1;
+                        return a.name.localeCompare(b.name);
+                    })
+                    .forEach(file => {
+                        const item = document.createElement('div');
+                        item.className = 'file-item';
+                        if (file.name === this.selectedFile) {
+                            item.classList.add('selected');
+                        }
+                        
+                        const icon = file.is_dir ? '📁' : (file.name.endsWith('.py') ? '🐍' : '📄');
+                        const sizeText = file.is_dir ? '' : this.formatFileSize(file.size);
+                        
+                        item.innerHTML = `
+                            <span>${icon} ${file.name}</span>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <span class="file-size">${sizeText}</span>
+                                <div class="file-actions">
+                                    ${!file.is_dir ? `
+                                        <button class="file-action-btn" onclick="ide.downloadFile('${file.name}')" title="Datei laden">📥</button>
+                                        <button class="file-action-btn" onclick="ide.deleteFile('${file.name}')" title="Löschen">🗑️</button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                        
+                        if (!file.is_dir) {
+                            item.addEventListener('click', () => this.selectFile(file.name));
+                        }
+                        
+                        fileList.appendChild(item);
+                    });
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            }
+
+            selectFile(filename) {
+                this.selectedFile = filename;
+                this.updateFileList();
+                this.downloadFile(filename);
+            }
+
+            async downloadFile(filename) {
+                if (!this.isConnected) return;
+                
+                this.addToTerminalDirect(`\n📥 Lade ${filename}...\n`);
+                
+                // Puffer und Status zurücksetzen
+                this.terminalBuffer = '';
+                this.expectingFileContent = filename;
+                
+                const downloadCode = `
+try:
+    with open('${filename}', 'r') as f:
+        content = f.read()
+    print('__FILE_CONTENT_START__')
+    print(repr(content))
+    print('__FILE_CONTENT_END__')
+except Exception as e:
+    print(f'Fehler beim Lesen der Datei: {e}')
+`;
+                
+                await this.sendRawCommand('\x05');
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await this.sendRawCommand(downloadCode);
+                await this.sendRawCommand('\x04');
+            }
+
+            parseFileContent(text, filename) {
+                const startMarker = '__FILE_CONTENT_START__';
+                const endMarker = '__FILE_CONTENT_END__';
+                
+                const startIndex = text.indexOf(startMarker);
+                const endIndex = text.indexOf(endMarker);
+                
+                if (startIndex !== -1 && endIndex !== -1) {
+                    const contentStart = startIndex + startMarker.length;
+                    const reprContent = text.substring(contentStart, endIndex).trim();
+                    
+                    try {
+                        // Python repr() rückgängig machen
+                        const content = eval(reprContent);
+                        
+                        // Datei im Editor öffnen
+                        this.switchToFile(filename, content);
+                        this.addToTerminal(`✅ ${filename} geladen (${content.length} Zeichen)\n`);
+                        
+                    } catch (error) {
+                        this.addToTerminal(`❌ Fehler beim Parsen des Dateiinhalts: ${error.message}\n`);
+                    }
+                    
+                    this.expectingFileContent = null;
+                    return true;
+                }
+                return false;
+            }
+
+            switchToFile(filename, content) {
+                // Speichere aktuellen Inhalt
+                this.files[this.currentFile] = document.getElementById('editor').value;
+                
+                // Wechsle zur neuen Datei
+                this.currentFile = filename;
+                this.files[filename] = content;
+                
+                // Update Editor
+                document.getElementById('editor').value = content;
+                
+                // Update Tab
+                this.updateTabs();
+            }
+
+            updateTabs() {
+                const tabsContainer = document.querySelector('.file-tabs');
+                tabsContainer.innerHTML = '';
+                
+                Object.keys(this.files).forEach(filename => {
+                    const tab = document.createElement('button');
+                    tab.className = 'tab';
+                    tab.textContent = filename;
+                    tab.dataset.file = filename;
+                    
+                    if (filename === this.currentFile) {
+                        tab.classList.add('active');
+                    }
+                    
+                    tab.addEventListener('click', () => {
+                        this.switchToFile(filename, this.files[filename]);
+                    });
+                    
+                    tabsContainer.appendChild(tab);
+                });
+            }
+
+            async deleteFile(filename) {
+                if (!confirm(`Datei "${filename}" wirklich löschen?`)) return;
+                
+                this.addToTerminal(`\n🗑️ Lösche ${filename}...\n`);
+                
+                const deleteCode = `
+try:
+    import os
+    os.remove('${filename}')
+    print('Datei ${filename} gelöscht')
+except Exception as e:
+    print(f'Fehler beim Löschen: {e}')
+`;
+                
+                await this.sendRawCommand('\x05');
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await this.sendRawCommand(deleteCode);
+                await this.sendRawCommand('\x04');
+                
+                setTimeout(() => this.listFiles(), 1000);
+            }
+
+            addToTerminal(text) {
+                // Parse spezielle Marker für Dateien
+                if (this.expectingFileList) {
+                    if (this.parseFileList(text)) {
+                        // Wenn erfolgreich geparst, restlichen gepufferten Text anzeigen
+                        if (this.terminalBuffer.length > 0) {
+                            this.addToTerminalDirect(this.terminalBuffer);
+                            this.terminalBuffer = '';
+                        }
+                        return;
+                    }
+                    // Wenn noch nicht vollständig, nicht im Terminal anzeigen
+                    return;
+                }
+                
+                if (this.expectingFileContent) {
+                    if (this.parseFileContent(text, this.expectingFileContent)) {
+                        // Wenn erfolgreich geparst, restlichen gepufferten Text anzeigen
+                        if (this.terminalBuffer.length > 0) {
+                            this.addToTerminalDirect(this.terminalBuffer);
+                            this.terminalBuffer = '';
+                        }
+                        return;
+                    }
+                    // Wenn noch nicht vollständig, nicht im Terminal anzeigen
+                    return;
+                }
+                
+                this.addToTerminalDirect(text);
+            }
+
+            addToTerminalDirect(text) {
+                const terminal = document.getElementById('terminal');
+                terminal.textContent += text;
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+
+            clearTerminal() {
+                document.getElementById('terminal').textContent = '';
+            }
+
+            updateUI() {
+                const connectBtn = document.getElementById('connectBtn');
+                const status = document.getElementById('status');
+                const buttons = ['runBtn', 'stopBtn', 'uploadBtn', 'listFilesBtn', 'softResetBtn', 'refreshFilesBtn'];
+                const terminalInput = document.getElementById('terminalInput');
+                
+                if (this.isConnected) {
+                    connectBtn.textContent = 'Trennen';
+                    status.textContent = 'Verbunden';
+                    status.className = 'status connected';
+                    buttons.forEach(id => document.getElementById(id).disabled = false);
+                    terminalInput.disabled = false;
+                } else {
+                    connectBtn.textContent = 'Mit ESP32 verbinden';
+                    status.textContent = 'Nicht verbunden';
+                    status.className = 'status disconnected';
+                    buttons.forEach(id => document.getElementById(id).disabled = true);
+                    terminalInput.disabled = true;
+                    
+                    // File list leeren
+                    document.getElementById('fileList').innerHTML = '<div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">Verbinde mit ESP32 um Dateien zu sehen</div>';
+                }
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('filenameModal').style.display = 'none';
+        }
+
+        // IDE initialisieren
+        const ide = new MicroPythonIDE();
+    </script>
+</body>
+</html>
