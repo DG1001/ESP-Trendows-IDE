@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -267,12 +267,12 @@
 </head>
 <body>
     <div class="toolbar">
-        <button class="btn" id="connectBtn">Mit ESP32 verbinden</button>
-        <button class="btn" id="newFileBtn">Neu</button> 
-        <button class="btn" id="runBtn" disabled>Ausführen (F5)</button>
-        <button class="btn" id="stopBtn" disabled>Stopp</button>
-        <button class="btn" id="uploadBtn" disabled>Hochladen</button> <!-- Bleibt initial disabled -->
-        <button class="btn" id="listFilesBtn" disabled>Dateien auflisten</button>
+        <button class="btn" id="connectBtn">Connect to ESP32</button>
+        <button class="btn" id="newFileBtn">New</button> 
+        <button class="btn" id="runBtn" disabled>Run (F5)</button>
+        <button class="btn" id="stopBtn" disabled>Stop</button>
+        <button class="btn" id="uploadBtn" disabled>Upload</button> 
+        <button class="btn" id="listFilesBtn" disabled>List Files</button>
         <button class="btn danger" id="softResetBtn" disabled>Soft Reset</button>
         <input type="password" id="deepSeekApiKeyInput" placeholder="DeepSeek API Key" style="margin-left: 10px; padding: 8px; background: #1e1e1e; border: 1px solid #3e3e42; color: #d4d4d4; border-radius: 4px; font-size: 12px; min-width: 150px;">
         <div id="llmUsageStats" style="margin-left: 10px; font-size: 10px; display: flex; gap: 8px; align-items: center;">
@@ -282,12 +282,12 @@
             <span>Cost: <span id="lastCost">0.00</span>µ</span>
             <span>Total: <span id="totalSessionCost">0.00</span>µ</span>
         </div>
-        <div class="status disconnected" id="status">Nicht verbunden</div>
+        <div class="status disconnected" id="status">Disconnected</div>
     </div>
 
     <div class="main-content">
         <div class="file-browser">
-            <h4 style="margin-bottom: 10px;">Dateien auf ESP32</h4>
+            <h4 style="margin-bottom: 10px;">Files on ESP32</h4>
             <div id="fileList"></div>
         </div>
 
@@ -299,10 +299,10 @@
                 <div id="editor" style="height:100%"></div>
             </div>
             <div class="prompt-panel">
-                <input type="text" id="llmPromptInput" placeholder="Prompt für DeepSeek eingeben...">
-                <button class="btn" id="sendToLlmBtn">An DeepSeek senden</button>
-                <button class="btn" id="acceptLlmChangesBtn" style="display: none; margin-left: 10px;">Änderungen übernehmen</button>
-                <button class="btn danger" id="rejectLlmChangesBtn" style="display: none; margin-left: 10px;">Ablehnen</button>
+                <input type="text" id="llmPromptInput" placeholder="Enter prompt for DeepSeek...">
+                <button class="btn" id="sendToLlmBtn">Send to DeepSeek</button>
+                <button class="btn" id="acceptLlmChangesBtn" style="display: none; margin-left: 10px;">Accept Changes</button>
+                <button class="btn danger" id="rejectLlmChangesBtn" style="display: none; margin-left: 10px;">Reject</button>
             </div>
         </div>
 
@@ -311,24 +311,24 @@
         <div class="terminal-panel" id="terminalPanel">
             <div class="terminal-header">
                 <span>REPL Terminal</span>
-                <button class="btn" id="clearTerminalBtn">Löschen</button>
+                <button class="btn" id="clearTerminalBtn">Clear</button>
             </div>
-            <div class="terminal" id="terminal">Bereit für Verbindung...\n</div>
-            <input class="terminal-input" id="terminalInput" placeholder=">>> MicroPython Befehl eingeben..." disabled>
+            <div class="terminal" id="terminal">Ready to connect...\n</div>
+            <input class="terminal-input" id="terminalInput" placeholder=">>> Enter MicroPython command..." disabled>
         </div>
     </div>
 
     <!-- Modal für Dateinamen -->
     <div class="modal" id="filenameModal">
         <div class="modal-content">
-            <h3>Datei speichern als:</h3>
-            <input type="text" id="filenameInput" placeholder="dateiname.py">
+            <h3>Save file as:</h3>
+            <input type="text" id="filenameInput" placeholder="filename.py">
             <div id="uploadProgressBarContainer" style="margin-top: 10px; background-color: #1e1e1e; border-radius: 4px; display: none;">
                 <div id="uploadProgressBar" style="width: 0%; height: 10px; background-color: #0e639c; border-radius: 4px; text-align: center; line-height: 10px; font-size: 8px; color: white;"></div>
             </div>
             <div style="margin-top: 15px;">
-                <button class="btn" id="saveFileBtn">Speichern</button>
-                <button class="btn" onclick="closeModal()">Abbrechen</button>
+                <button class="btn" id="saveFileBtn">Save</button>
+                <button class="btn" onclick="closeModal()">Cancel</button>
             </div>
         </div>
     </div>
@@ -361,7 +361,7 @@
 
             checkWebSerialSupport() {
                 if (!('serial' in navigator)) {
-                    this.addToTerminal('❌ Web Serial API wird nicht unterstützt. Bitte verwende Chrome oder Edge.\n');
+                    this.addToTerminal('❌ Web Serial API not supported. Please use Chrome or Edge.\n');
                 }
             }
 
@@ -498,22 +498,22 @@
                 const originalCode = this.editor.getValue(); // Originalcode speichern
 
                 if (!this.deepSeekApiKey) {
-                    this.addToTerminal('\n❌ Bitte zuerst einen DeepSeek API Key eingeben.\n');
-                    console.error('DeepSeek API Key fehlt.');
-                    alert('Bitte zuerst einen DeepSeek API Key im Feld oben rechts eingeben.');
+                    this.addToTerminal('\n❌ Please enter a DeepSeek API Key first.\n');
+                    console.error('DeepSeek API Key missing.');
+                    alert('Please enter a DeepSeek API Key in the field at the top right first.');
                     return;
                 }
 
                 if (!prompt) {
-                    this.addToTerminal('\nℹ️ Bitte einen Prompt für DeepSeek eingeben.\n');
-                    alert('Bitte einen Prompt für DeepSeek eingeben.');
+                    this.addToTerminal('\nℹ️ Please enter a prompt for DeepSeek.\n');
+                    alert('Please enter a prompt for DeepSeek.');
                     return;
                 }
 
-                this.addToTerminal('\n🤖 Sende Anfrage an DeepSeek...\n');
+                this.addToTerminal('\n🤖 Sending request to DeepSeek...\n');
                 const sendToLlmBtn = document.getElementById('sendToLlmBtn');
                 sendToLlmBtn.disabled = true;
-                sendToLlmBtn.innerHTML = '<span class="spinner"></span> Sende...';
+                sendToLlmBtn.innerHTML = '<span class="spinner"></span> Sending...';
 
                 const API_URL = `https://api.deepseek.com/chat/completions`;
                 const systemPrompt = "You are a helpful assistant that generates MicroPython code for microcontrollers. Ensure the code is valid MicroPython and directly usable on devices like ESP32. Only output the Python code, without any surrounding text or explanations unless explicitly asked.";
@@ -550,7 +550,7 @@
                     if (!response.ok) {
                         const errorData = await response.json();
                         console.error('DeepSeek API Error Response:', errorData);
-                        this.addToTerminal(`\n❌ Fehler von DeepSeek API: ${response.status} ${response.statusText}\nDetails: ${JSON.stringify(errorData.error?.message || errorData)}\n`);
+                        this.addToTerminal(`\n❌ Error from DeepSeek API: ${response.status} ${response.statusText}\nDetails: ${JSON.stringify(errorData.error?.message || errorData)}\n`);
                         throw new Error(`API request failed with status ${response.status}: ${JSON.stringify(errorData)}`);
                     }
 
@@ -615,19 +615,19 @@
 
                         // Diff-Ansicht anzeigen, anstatt den Editor direkt zu aktualisieren
                         this.showDiff(originalCode, newCode);
-                        this.addToTerminal('\n✅ Code vom LLM erhalten. Bitte überprüfen Sie die Änderungen.\n');
-                        // document.getElementById('llmPromptInput').value = ''; // Wird jetzt in hideDiffAndRestoreEditor gemacht
+                        this.addToTerminal('\n✅ Code received from LLM. Please review the changes.\n');
+                        // document.getElementById('llmPromptInput').value = ''; // Now done in hideDiffAndRestoreEditor
                     } else {
-                        console.warn('DeepSeek API: Keine gültigen Kandidaten in der Antwort gefunden.', data);
-                        this.addToTerminal('\n⚠️ DeepSeek hat keinen Code oder eine unerwartete Antwortstruktur zurückgegeben.\n');
+                        console.warn('DeepSeek API: No valid candidates found in response.', data);
+                        this.addToTerminal('\n⚠️ DeepSeek did not return code or had an unexpected response structure.\n');
                     }
 
                 } catch (error) {
-                    console.error('Fehler bei der Anfrage an DeepSeek API:', error);
-                    this.addToTerminal(`\n❌ Fehler bei der Kommunikation mit DeepSeek: ${error.message}\n`);
+                    console.error('Error requesting DeepSeek API:', error);
+                    this.addToTerminal(`\n❌ Error communicating with DeepSeek: ${error.message}\n`);
                 } finally {
                     sendToLlmBtn.disabled = false;
-                    sendToLlmBtn.innerHTML = 'An DeepSeek senden';
+                    sendToLlmBtn.innerHTML = 'Send to DeepSeek';
                 }
             }
 
@@ -702,13 +702,13 @@
                 const acceptedCode = this.diffEditor.getModel().modified.getValue();
                 this.editor.setValue(acceptedCode);
                 this.files[this.currentFile] = acceptedCode;
-                this.addToTerminal('\n✅ LLM-Änderungen übernommen.\n');
+                this.addToTerminal('\n✅ LLM changes accepted.\n');
                 this.hideDiffAndRestoreEditor();
             }
 
             rejectLLMChanges() {
-                if (!this.diffEditor) return; // Sollte nicht passieren, aber sicher ist sicher
-                this.addToTerminal('\n❌ LLM-Änderungen abgelehnt.\n');
+                if (!this.diffEditor) return; // Should not happen, but just in case
+                this.addToTerminal('\n❌ LLM changes rejected.\n');
                 this.hideDiffAndRestoreEditor();
             }
 
@@ -730,7 +730,7 @@
                 this.updateActiveTab(this.currentFile);
                 // Upload-Button aktivieren, wenn verbunden, da jetzt eine (leere) Datei zum Speichern vorhanden ist
                 document.getElementById('uploadBtn').disabled = !this.isConnected;
-                this.addToTerminal(`\n✨ Neue Datei '${this.currentFile}' im Editor erstellt.\n`);
+                this.addToTerminal(`\n✨ New file '${this.currentFile}' created in editor.\n`);
             }
 
             async fetchHardwareContextFile() {
@@ -768,13 +768,13 @@ except Exception as e_hw:
             async _executeDeviceCommand(command, successMessage, errorMessagePrefix) {
                 if (!this.isConnected) return;
 
-                this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (vor Gerätebefehl)...\n');
+                this.addToTerminal('🛑 Stopping any running scripts (before device command)...\n');
                 await this.sendRawCommand('\x03'); // Ctrl+C
                 await new Promise(resolve => setTimeout(resolve, 50));
-                await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                await this.sendRawCommand('\r');   // Enter to clear REPL line
                 await new Promise(resolve => setTimeout(resolve, 50));
 
-                this.addToTerminal(`\n⚙️ Führe aus: ${command.splitlines ? command.splitlines()[0] : command}\n`); // Zeige nur die erste Zeile bei mehrzeiligen Befehlen
+                this.addToTerminal(`\n⚙️ Executing: ${command.splitlines ? command.splitlines()[0] : command}\n`); // Show only first line for multi-line commands
                 
                 const script = `
 try:
@@ -796,23 +796,23 @@ except Exception as e:
                 // aber für den Moment verlassen wir uns auf die Terminalausgabe und aktualisieren die Dateiliste.
                 // Eine robustere Lösung würde eine Callback-Mechanik oder Promises verwenden, die auf die Marker warten.
                 if (successMessage) this.addToTerminal(`\n✅ ${successMessage}\n`);
-                this.listFiles(); // Dateiliste immer aktualisieren
+                this.listFiles(); // Always update file list
             }
 
             promptDeleteFile(filename) {
-                if (confirm(`Möchten Sie die Datei '${filename}' wirklich löschen?`)) {
-                    this._executeDeviceCommand(`os.remove('${filename}')`, `Datei '${filename}' gelöscht.`);
+                if (confirm(`Are you sure you want to delete the file '${filename}'?`)) {
+                    this._executeDeviceCommand(`os.remove('${filename}')`, `File '${filename}' deleted.`);
                 }
             }
 
             promptRenameFile(oldFilename) {
-                const newFilename = prompt(`Neuen Namen für '${oldFilename}' eingeben:`, oldFilename);
+                const newFilename = prompt(`Enter new name for '${oldFilename}':`, oldFilename);
                 if (newFilename && newFilename !== oldFilename) {
                     if (!newFilename.endsWith('.py') && !newFilename.endsWith('.txt')) {
-                         alert('Dateiname muss mit .py oder .txt enden.');
+                         alert('Filename must end with .py or .txt.');
                          return;
                     }
-                    this._executeDeviceCommand(`os.rename('${oldFilename}', '${newFilename}')`, `Datei '${oldFilename}' umbenannt in '${newFilename}'.`);
+                    this._executeDeviceCommand(`os.rename('${oldFilename}', '${newFilename}')`, `File '${oldFilename}' renamed to '${newFilename}'.`);
                     if (this.currentFile === oldFilename) {
                         this.currentFile = newFilename;
                         this.updateActiveTab(newFilename);
@@ -830,7 +830,7 @@ except Exception as e:
 
             async connect() {
                 try {
-                    this.addToTerminal('🔌 Verbinde mit ESP32...\n');
+                    this.addToTerminal('🔌 Connecting to ESP32...\n');
                     
                     this.port = await navigator.serial.requestPort();
                     await this.port.open({ baudRate: 115200 });
@@ -841,19 +841,19 @@ except Exception as e:
                     this.isConnected = true;
                     this.updateUI();
                     
-                    this.addToTerminal('✅ Erfolgreich verbunden!\n');
+                    this.addToTerminal('✅ Successfully connected!\n');
                     
                     // Stoppe evtl. laufende Skripte und stelle sicher, dass die REPL bereit ist
-                    this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (nach Verbindung)...\n');
+                    this.addToTerminal('🛑 Stopping any running scripts (after connection)...\n');
                     await this.sendRawCommand('\x03'); // Ctrl+C (Stop)
                     await new Promise(resolve => setTimeout(resolve, 50));
-                    await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                    await this.sendRawCommand('\r');   // Enter to clear REPL line
                     await new Promise(resolve => setTimeout(resolve, 50));
                                         
                     this.startReading();
                     
                 } catch (error) {
-                    this.addToTerminal(`❌ Verbindungsfehler: ${error.message}\n`);
+                    this.addToTerminal(`❌ Connection error: ${error.message}\n`);
                 }
             }
 
@@ -872,10 +872,10 @@ except Exception as e:
                     
                     this.isConnected = false;
                     this.updateUI();
-                    this.addToTerminal('🔌 Verbindung getrennt\n');
+                    this.addToTerminal('🔌 Disconnected.\n');
                     
                 } catch (error) {
-                    this.addToTerminal(`❌ Fehler beim Trennen: ${error.message}\n`);
+                    this.addToTerminal(`❌ Error disconnecting: ${error.message}\n`);
                 }
             }
 
@@ -887,67 +887,72 @@ except Exception as e:
                         if (done) break;
                         
                         const text = new TextDecoder().decode(value);
-                        this.addToTerminal(text);
+                        this.addToTerminal(text); // Add raw data to terminal display
                         
-                        // Check for file list output
-                        buffer += text;
-                        if (buffer.includes('===FILELIST_END===')) {
-                            const files = this.parseFileList(buffer);
-                            if (files) {
-                                this.updateFileBrowser(files);
-                            }
-                            buffer = '';
-                        }
-                        
-                        // Check for file content output for editor
-                        if (buffer.includes('===FILE_CONTENT_END===')) {
-                            if (!this.isLoadingHardwareContext) { // Nur verarbeiten, wenn nicht Hardware-Kontext geladen wird
-                                const content = this.parseFileContent(buffer);
-                                if (content) {
-                                    this.editor.setValue(content);
-                                    this.files[this.currentFile] = content;
-                                }
-                            }
-                            buffer = ''; // Buffer immer leeren, wenn End-Marker gefunden
-                        }
+                        buffer += text; // Accumulate raw data in buffer
 
-                        // Check for hardware.txt content
-                        // Ensure we only try to parse if we are expecting it AND the end marker is present
-                        if (this.isLoadingHardwareContext && buffer.includes('===HARDWARE_CONTEXT_END===')) {
-                            const hardwareContextResult = this.parseHardwareContext(buffer);
-                            if (hardwareContextResult) { // parseHardwareContext now returns an object or null
-                                this.hardwareContext = hardwareContextResult.content; // Use .content
-                                if (hardwareContextResult.status === 'success') {
-                                    if (hardwareContextResult.content) {
-                                        this.addToTerminal('\n✅ Hardware context (hardware.txt) loaded.\n');
-                                    } else {
-                                        // This case might occur if hardware.txt is empty but read successfully
-                                        this.addToTerminal('\nℹ️ Hardware context (hardware.txt) is empty.\n');
-                                    }
-                                }
-                                // Error messages (like "Error reading hardware.txt") are handled by parseHardwareContext itself
-                                this.isLoadingHardwareContext = false; 
-                                buffer = buffer.substring(hardwareContextResult.processedLength); // Consume processed part
-                            } else if (buffer.includes('===HARDWARE_CONTEXT_START===') && buffer.includes('===HARDWARE_CONTEXT_END===')) {
-                                // If parseHardwareContext returned null but markers were present, it implies an issue not caught by specific error strings.
-                                // Or, if it was an incomplete message that got fully buffered now.
-                                // For safety, if markers are present but parsing failed in an unexpected way, reset loading state and clear buffer.
-                                this.addToTerminal('\n⚠️ Hardware context (hardware.txt) could not be fully parsed, though markers were present.\n');
-                                this.isLoadingHardwareContext = false;
-                                // Attempt to find the end marker to clear up to that point.
-                                const endMarkerIndex = buffer.indexOf('===HARDWARE_CONTEXT_END===');
-                                if (endMarkerIndex !== -1) {
-                                    buffer = buffer.substring(endMarkerIndex + '===HARDWARE_CONTEXT_END==='.length);
-                                } else {
-                                    buffer = ''; // Fallback: clear buffer if end marker somehow not found after includes check
+                        let processedSomethingInLoop = true; 
+                        while (processedSomethingInLoop) {
+                            processedSomethingInLoop = false;
+
+                            // 1. Try to process file list
+                            const fileListResult = this.parseFileList(buffer);
+                            if (fileListResult) {
+                                this.updateFileBrowser(fileListResult.files);
+                                buffer = buffer.substring(fileListResult.processedLength);
+                                processedSomethingInLoop = true;
+                                continue; 
+                            }
+
+                            // 2. Try to process file content for editor
+                            if (!this.isLoadingHardwareContext) {
+                                const fileContentResult = this.parseFileContent(buffer);
+                                if (fileContentResult) {
+                                    this.editor.setValue(fileContentResult.content);
+                                    this.files[this.currentFile] = fileContentResult.content;
+                                    buffer = buffer.substring(fileContentResult.processedLength);
+                                    processedSomethingInLoop = true;
+                                    continue;
                                 }
                             }
-                            // If only partial hardware context message in buffer, loop will continue and buffer will grow.
+                            
+                            // 3. Try to process hardware context
+                            if (this.isLoadingHardwareContext && buffer.includes('===HARDWARE_CONTEXT_END===')) {
+                                const hardwareContextResult = this.parseHardwareContext(buffer);
+                                if (hardwareContextResult) { 
+                                    this.hardwareContext = hardwareContextResult.content;
+                                    if (hardwareContextResult.status === 'success') {
+                                        if (hardwareContextResult.content) {
+                                            this.addToTerminal('\n✅ Hardware context (hardware.txt) loaded.\n');
+                                        } else {
+                                            this.addToTerminal('\nℹ️ Hardware context (hardware.txt) is empty.\n');
+                                        }
+                                    }
+                                    // Error message is handled by parseHardwareContext itself.
+                                    this.isLoadingHardwareContext = false; 
+                                    buffer = buffer.substring(hardwareContextResult.processedLength);
+                                    processedSomethingInLoop = true;
+                                    continue; 
+                                } else if (buffer.includes('===HARDWARE_CONTEXT_START===') && buffer.includes('===HARDWARE_CONTEXT_END===')) {
+                                    // Safety net: If parseHardwareContext returned null but markers were present,
+                                    // it implies an issue not caught by specific error strings or an incomplete message that got fully buffered.
+                                    this.addToTerminal('\n⚠️ Hardware context (hardware.txt) could not be fully parsed, though markers were present.\n');
+                                    this.isLoadingHardwareContext = false;
+                                    const endMarkerIndex = buffer.indexOf('===HARDWARE_CONTEXT_END===');
+                                    if (endMarkerIndex !== -1) {
+                                        buffer = buffer.substring(endMarkerIndex + '===HARDWARE_CONTEXT_END==='.length);
+                                    } else {
+                                        buffer = ''; // Fallback
+                                    }
+                                    processedSomethingInLoop = true; 
+                                    continue;
+                                }
+                            }
                         }
                     }
                 } catch (error) {
                     if (this.isConnected) {
-                        this.addToTerminal(`❌ Lesefehler: ${error.message}\n`);
+                        this.addToTerminal(`❌ Read error: ${error.message}\n`);
                     }
                 }
             }
@@ -975,16 +980,16 @@ except Exception as e:
                 if (!this.isConnected) return;
                 
                 if (!this.currentFile) {
-                    this.addToTerminal('\n❌ Bitte erst eine Datei hochladen\n');
+                    this.addToTerminal('\n❌ Please upload a file first.\n');
                     return;
                 }
                 
-                this.addToTerminal(`\n=== Führe ${this.currentFile} aus ===\n`);
+                this.addToTerminal(`\n=== Executing ${this.currentFile} ===\n`);
 
-                this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (vor Code-Ausführung)...\n');
+                this.addToTerminal('🛑 Stopping any running scripts (before code execution)...\n');
                 await this.sendRawCommand('\x03'); // Ctrl+C
                 await new Promise(resolve => setTimeout(resolve, 50));
-                await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                await this.sendRawCommand('\r');   // Enter to clear REPL line
                 await new Promise(resolve => setTimeout(resolve, 50));
                 
                 // Code ausführen mittels Paste-Modus und exec
@@ -1017,14 +1022,14 @@ except SyntaxError as e:
             async stopExecution() {
                 if (!this.isConnected) return;
                 
-                this.addToTerminal('\n🛑 Stoppe Ausführung...\n');
+                this.addToTerminal('\n🛑 Stopping execution...\n');
                 await this.sendRawCommand('\x03'); // Ctrl+C
             }
 
             async softReset() {
                 if (!this.isConnected) return;
                 
-                this.addToTerminal('\n🔄 Soft Reset...\n');
+                this.addToTerminal('\n🔄 Soft Resetting...\n');
                 await this.sendRawCommand('\x04'); // Ctrl+D
             }
 
@@ -1044,7 +1049,7 @@ except SyntaxError as e:
                 const filename = document.getElementById('filenameInput').value;
                 if (!filename) return;
                 if (!filename.endsWith('.py') && !filename.endsWith('.txt')) {
-                    this.addToTerminal('\n❌ Dateiname muss mit .py oder .txt enden\n');
+                    this.addToTerminal('\n❌ Filename must end with .py or .txt\n');
                     return;
                 }
                 
@@ -1060,8 +1065,8 @@ except SyntaxError as e:
                 progressBar.textContent = '0%';
                 progressBarContainer.style.display = 'block';
                 
-                this.addToTerminal(`\n📤 Lade ${filename} hoch (${code.length} Zeichen, ${totalChunks} Teile)...\n`);
-                this.addToTerminal('⚠️ Bitte warten während die Datei hochgeladen wird...\n');
+                this.addToTerminal(`\n📤 Uploading ${filename} (${code.length} chars, ${totalChunks} chunks)...\n`);
+                this.addToTerminal('⚠️ Please wait while the file is being uploaded...\n');
                 
                 try {
                     // Datei erstellen
@@ -1090,12 +1095,12 @@ except SyntaxError as e:
                             
                             // Fortschritt anzeigen
                             const progress = Math.round(((i + 1) / totalChunks) * 100);
-                            this.addToTerminal(`\r🔼 Hochgeladen: ${progress}% (${(i + 1) * chunkSize}/${code.length})`);
+                            this.addToTerminal(`\r🔼 Uploaded: ${progress}% (${(i + 1) * chunkSize}/${code.length})`);
                             progressBar.style.width = progress + '%';
                             progressBar.textContent = progress + '%';
                         } catch (error) {
-                            this.addToTerminal(`\n❌ Fehler bei Chunk ${i+1}: ${error.message}\n`);
-                            progressBarContainer.style.display = 'none'; // Fortschrittsbalken bei Fehler ausblenden
+                            this.addToTerminal(`\n❌ Error in chunk ${i+1}: ${error.message}\n`);
+                            progressBarContainer.style.display = 'none'; // Hide progress bar on error
                             throw error;
                         }
                     }
@@ -1107,12 +1112,12 @@ except SyntaxError as e:
                     await this.sendRawCommand('\x04');
                     await new Promise(resolve => setTimeout(resolve, 100)); // Reduziert von 200ms
                     
-                    this.addToTerminal(`\n✅ ${filename} erfolgreich hochgeladen!\n`);
-                    progressBar.textContent = '100%'; // Sicherstellen, dass es 100% anzeigt
+                    this.addToTerminal(`\n✅ ${filename} uploaded successfully!\n`);
+                    progressBar.textContent = '100%'; // Ensure it shows 100%
                     
                 } catch (error) {
-                    this.addToTerminal(`\n❌ Fehler beim Hochladen: ${error.message}\n`);
-                    progressBarContainer.style.display = 'none'; // Fortschrittsbalken bei Fehler ausblenden
+                    this.addToTerminal(`\n❌ Error during upload: ${error.message}\n`);
+                    progressBarContainer.style.display = 'none'; // Hide progress bar on error
                 } finally {
                     // Kurze Verzögerung, bevor das Modal geschlossen wird, damit der Benutzer 100% sieht
                     setTimeout(() => {
@@ -1129,13 +1134,13 @@ except SyntaxError as e:
             async loadFile(filename) {
                 if (!this.isConnected) return;
 
-                this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (vor Datei-Laden)...\n');
+                this.addToTerminal('🛑 Stopping any running scripts (before loading file)...\n');
                 await this.sendRawCommand('\x03'); // Ctrl+C
                 await new Promise(resolve => setTimeout(resolve, 50));
-                await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                await this.sendRawCommand('\r');   // Enter to clear REPL line
                 await new Promise(resolve => setTimeout(resolve, 50));
                 
-                this.addToTerminal(`\n📥 Lade ${filename}...\n`);
+                this.addToTerminal(`\n📥 Loading ${filename}...\n`);
                 
                 const loadCode = `
 try:
@@ -1144,7 +1149,7 @@ try:
         print(f.read())
         print('===FILE_CONTENT_END===')
 except Exception as e:
-    print('Fehler:', e)
+    print('Error:', e)
 `;
                 
                 await this.sendRawCommand('\x05');
@@ -1160,21 +1165,19 @@ except Exception as e:
                 // this.editor.setValue(''); // Entfernt: Inhalt wird durch Lesevorgang in startReading() gefüllt
             }
 
-            parseFileContent(text) {
+            parseFileContent(buffer) {
                 const startMarker = '===FILE_CONTENT_START===';
                 const endMarker = '===FILE_CONTENT_END===';
+                const startIndex = buffer.indexOf(startMarker);
+                if (startIndex === -1) return null;
+
+                const endIndexMarker = buffer.indexOf(endMarker, startIndex + startMarker.length);
+                if (endIndexMarker === -1) return null;
                 
-                const start = text.indexOf(startMarker);
-                const end = text.indexOf(endMarker);
-                
-                if (start === -1 || end === -1) return null;
-                
-                let content = text.substring(start + startMarker.length, end);
-                // Normalisiere Zeilenenden (CRLF -> LF)
+                let content = buffer.substring(startIndex + startMarker.length, endIndexMarker);
                 content = content.replace(/\r\n/g, '\n');
-                // Entferne überflüssige Leerzeilen am Anfang und Ende
-                content = content.replace(/^\n+|\n+$/g, '');
-                return content;
+                content = content.replace(/^\n+|\n+$/g, ''); // Trim leading/trailing newlines
+                return { content: content, processedLength: endIndexMarker + endMarker.length };
             }
 
             parseHardwareContext(buffer) { // Changed parameter name from text to buffer
@@ -1201,13 +1204,13 @@ except Exception as e:
             async listFiles() {
                 if (!this.isConnected) return;
 
-                this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (vor Dateiliste)...\n');
+                this.addToTerminal('🛑 Stopping any running scripts (before listing files)...\n');
                 await this.sendRawCommand('\x03'); // Ctrl+C
                 await new Promise(resolve => setTimeout(resolve, 50));
-                await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                await this.sendRawCommand('\r');   // Enter to clear REPL line
                 await new Promise(resolve => setTimeout(resolve, 50));
                 
-                this.addToTerminal('\n📁 Dateien werden aufgelistet...\n');
+                this.addToTerminal('\n📁 Listing files...\n');
                 
                 const listCode = `
 import os
@@ -1230,25 +1233,28 @@ print('===FILELIST_END===')
                 await this.sendRawCommand('\r'); // REPL-Zeile säubern
             }
 
-            parseFileList(text) {
+            parseFileList(buffer) {
                 const startMarker = '===FILELIST_START===';
                 const endMarker = '===FILELIST_END===';
-                
-                const start = text.indexOf(startMarker);
-                const end = text.indexOf(endMarker);
-                
-                if (start === -1 || end === -1) return null;
-                
-                const fileListText = text.substring(start + startMarker.length, end).trim();
+                const startIndex = buffer.indexOf(startMarker);
+                if (startIndex === -1) return null; 
+
+                const endIndexMarker = buffer.indexOf(endMarker, startIndex + startMarker.length);
+                if (endIndexMarker === -1) return null;
+
+                const fileListText = buffer.substring(startIndex + startMarker.length, endIndexMarker).trim();
                 const lines = fileListText.split('\n');
-                
                 const files = [];
                 for (const line of lines) {
-                    const [name, size] = line.split('|');
-                    files.push({name, size});
+                    if (line.trim() === '') continue; 
+                    const parts = line.split('|');
+                    if (parts.length === 2 && parts[0].trim() !== '') {
+                       files.push({name: parts[0].trim(), size: parts[1].trim()});
+                    } else {
+                        console.warn("Skipping malformed file list line:", line);
+                    }
                 }
-                
-                return files;
+                return { files: files, processedLength: endIndexMarker + endMarker.length };
             }
 
             updateFileBrowser(files) {
@@ -1276,7 +1282,7 @@ print('===FILELIST_END===')
                 files.forEach(file => {
                     const fileItem = document.createElement('div');
                     fileItem.className = 'file-item';
-                    fileItem.textContent = `${file.name} (${file.size === 'folder' ? 'Ordner' : file.size + ' bytes'})`;
+                    fileItem.textContent = `${file.name} (${file.size === 'folder' ? 'Folder' : file.size + ' bytes'})`;
                     
                     fileItem.addEventListener('click', () => {
                         contextMenu.style.display = 'none'; // Kontextmenü ausblenden, falls offen
@@ -1313,18 +1319,18 @@ print('===FILELIST_END===')
                 const terminalInput = document.getElementById('terminalInput');
                 
                 if (this.isConnected) {
-                    connectBtn.textContent = 'Trennen';
-                    status.textContent = 'Verbunden';
+                    connectBtn.textContent = 'Disconnect';
+                    status.textContent = 'Connected';
                     status.className = 'status connected';
                     buttonsToToggle.forEach(id => document.getElementById(id).disabled = false);
-                    document.getElementById('uploadBtn').disabled = false; // Generell Upload erlauben wenn verbunden
+                    document.getElementById('uploadBtn').disabled = false; // Generally allow upload when connected
                     terminalInput.disabled = false;
                 } else {
-                    connectBtn.textContent = 'Mit ESP32 verbinden';
-                    status.textContent = 'Nicht verbunden';
+                    connectBtn.textContent = 'Connect to ESP32';
+                    status.textContent = 'Disconnected';
                     status.className = 'status disconnected';
                     buttonsToToggle.forEach(id => document.getElementById(id).disabled = true);
-                    document.getElementById('uploadBtn').disabled = true; // Upload nur wenn verbunden
+                    document.getElementById('uploadBtn').disabled = true; // Upload only when connected
                     terminalInput.disabled = true;
                 }
             }
@@ -1340,14 +1346,14 @@ print('===FILELIST_END===')
                 require(['vs/editor/editor.main'], function() {
                     const editor = monaco.editor.create(document.getElementById('editor'), {
                         value: [
-                            "# Dein MicroPython Code hier...",
+                            "# Your MicroPython code here...",
                             "print('Hello ESP32!')",
                             "",
-                            "# Beispiel: LED blinken",
+                            "# Example: Blink LED",
                             "from machine import Pin",
                             "import time",
                             "",
-                            "led = Pin(2, Pin.OUT)  # GPIO 2 für eingebaute LED",
+                            "led = Pin(2, Pin.OUT)  # GPIO 2 for built-in LED",
                             "",
                             "for i in range(10):",
                             "    led.on()",
@@ -1375,7 +1381,7 @@ print('===FILELIST_END===')
                 console.error('Editor Initialization Error:', error);
                 // Fallback falls Monaco nicht lädt
                 const editorElement = document.getElementById('editor');
-                editorElement.innerHTML = '<textarea style="width:100%;height:100%;background:#1e1e1e;color:#d4d4d4;border:none;padding:10px;font-family:monospace;font-size:14px;" id="fallbackEditor"># Dein MicroPython Code hier...\nprint(\'Hello ESP32!\')</textarea>';
+                editorElement.innerHTML = '<textarea style="width:100%;height:100%;background:#1e1e1e;color:#d4d4d4;border:none;padding:10px;font-family:monospace;font-size:14px;" id="fallbackEditor"># Your MicroPython code here...\nprint(\'Hello ESP32!\')</textarea>';
                 window.ide = new MicroPythonIDE({
                     getValue: () => document.getElementById('fallbackEditor').value,
                     setValue: (content) => document.getElementById('fallbackEditor').value = content,
@@ -1395,8 +1401,8 @@ print('===FILELIST_END===')
     </script>
 
     <div id="fileContextMenu" class="context-menu" style="display: none; position: absolute; background-color: #3c3c3c; border: 1px solid #555; padding: 5px 0; z-index: 1001; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-        <div class="context-menu-item" data-action="rename">Umbenennen</div>
-        <div class="context-menu-item" data-action="delete">Löschen</div>
+        <div class="context-menu-item" data-action="rename">Rename</div>
+        <div class="context-menu-item" data-action="delete">Delete</div>
     </div>
 </body>
 </html>
