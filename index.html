@@ -450,16 +450,9 @@
 
                 // Construct the script with \r line endings for paste mode
                 // The template literal below will have \n characters for newlines.
-                const pythonScriptSource = `try:
-    with open('${this.currentFile}', 'r') as f:
-        exec(f.read())
-    print('\\n✅ Ausführung abgeschlossen')
-except Exception as e:
-    # Use import sys inside the script to ensure it's contextually available
-    # when this script snippet is executed.
-    _sys_module_ = __import__('sys')
-    print('\\n❌ Fehler beim Ausführen von ${this.currentFile}:')
-    _sys_module_.print_exception(e)
+                const pythonScriptSource = `
+with open('${this.currentFile}', 'r') as f:
+     exec(f.read())
 `;
                 // Replace all \n with \r, and add a final \r to terminate the last line.
                 const pythonScript = pythonScriptSource.replace(/\n/g, '\r') + '\r';
