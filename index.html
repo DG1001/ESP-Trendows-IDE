@@ -170,9 +170,6 @@
             cursor: pointer;
             border-radius: 3px;
             font-size: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
 
         .file-item:hover {
@@ -181,39 +178,6 @@
 
         .file-item.selected {
             background: #094771;
-        }
-
-        .file-size {
-            font-size: 10px;
-            color: #888;
-        }
-
-        .file-actions {
-            display: none;
-            gap: 4px;
-        }
-
-        .file-item:hover .file-actions {
-            display: flex;
-        }
-
-        .file-action-btn {
-            background: none;
-            border: none;
-            color: #888;
-            cursor: pointer;
-            padding: 2px;
-            border-radius: 2px;
-            font-size: 10px;
-        }
-
-        .file-action-btn:hover {
-            background: #555;
-            color: white;
-        }
-
-        .loading {
-            opacity: 0.5;
         }
 
         .modal {
@@ -275,15 +239,8 @@
 
     <div class="main-content">
         <div class="file-browser">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h4>Dateien auf ESP32</h4>
-                <button class="btn" id="refreshFilesBtn" disabled title="Dateien neu laden" style="padding: 4px 8px; font-size: 10px;">🔄</button>
-            </div>
-            <div id="fileList">
-                <div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">
-                    Verbinde mit ESP32 und klicke "Dateien auflisten"
-                </div>
-            </div>
+            <h4 style="margin-bottom: 10px;">Dateien auf ESP32</h4>
+            <div id="fileList"></div>
         </div>
 
         <div class="editor-panel">
@@ -339,13 +296,6 @@ for i in range(10):
                 this.isConnected = false;
                 this.currentFile = 'main.py';
                 this.files = {'main.py': document.getElementById('editor').value};
-                this.espFiles = []; // Dateien auf dem ESP32
-                this.selectedFile = null;
-                this.terminalBuffer = ''; // Puffer für Terminal-Text
-                this.expectingFileList = false;
-                this.expectingFileContent = null;
-                this.fileListTimeout = null;
-                this.isStopCommand = false; // Flag für Stopp-Befehle
                 
                 this.initializeEventListeners();
                 this.checkWebSerialSupport();
@@ -363,7 +313,6 @@ for i in range(10):
                 document.getElementById('stopBtn').addEventListener('click', () => this.stopExecution());
                 document.getElementById('uploadBtn').addEventListener('click', () => this.showUploadModal());
                 document.getElementById('listFilesBtn').addEventListener('click', () => this.listFiles());
-                document.getElementById('refreshFilesBtn').addEventListener('click', () => this.listFiles());
                 document.getElementById('softResetBtn').addEventListener('click', () => this.softReset());
                 document.getElementById('clearTerminalBtn').addEventListener('click', () => this.clearTerminal());
                 document.getElementById('terminalInput').addEventListener('keypress', (e) => {
@@ -407,10 +356,9 @@ for i in range(10):
                     this.updateUI();
                     
                     this.addToTerminal('✅ Erfolgreich verbunden!\n');
-                    this.addToTerminal('💡 Klicke "Dateien auflisten" um ESP32-Dateien zu sehen\n');
                     
-                    // Aggressive Stopp-Sequenz beim Verbinden
-                    await this.forceStop();
+                    // REPL starten
+                    await this.sendRawCommand('\x03\x03\x02'); // Ctrl+C, Ctrl+C, Ctrl+B
                     
                     this.startReading();
                     
@@ -421,11 +369,6 @@ for i in range(10):
 
             async disconnect() {
                 try {
-                    if (this.fileListTimeout) {
-                        clearTimeout(this.fileListTimeout);
-                        this.fileListTimeout = null;
-                    }
-                    
                     if (this.reader) {
                         await this.reader.cancel();
                         this.reader.releaseLock();
@@ -453,65 +396,13 @@ for i in range(10):
                         if (done) break;
                         
                         const text = new TextDecoder().decode(value);
-                        this.processTerminalData(text);
+                        this.addToTerminal(text);
                     }
                 } catch (error) {
                     if (this.isConnected) {
-                        this.addToTerminal(`❌ Les efehler: ${error.message}\n`);
+                        this.addToTerminal(`❌ Lesefehler: ${error.message}\n`);
                     }
                 }
-            }
-
-            processTerminalData(text) {
-                // Bei Stopp-Befehlen immer alles direkt anzeigen
-                if (this.isStopCommand) {
-                    this.addToTerminalDirect(text);
-                    return;
-                }
-
-                // Sammle alle Daten wenn wir auf Dateiliste warten
-                if (this.expectingFileList) {
-                    this.terminalBuffer += text;
-                    
-                    // Prüfe ob wir die komplette Dateiliste haben
-                    if (this.parseFileList(this.terminalBuffer)) {
-                        this.expectingFileList = false;
-                        this.terminalBuffer = '';
-                        if (this.fileListTimeout) {
-                            clearTimeout(this.fileListTimeout);
-                            this.fileListTimeout = null;
-                        }
-                        return;
-                    }
-                    
-                    // Zeige nur normale Terminal-Ausgaben an (ohne unsere Marker)
-                    const cleanText = text.replace(/__FILES_START__|__FILES_END__/g, '');
-                    if (cleanText.trim()) {
-                        this.addToTerminalDirect(cleanText);
-                    }
-                    return;
-                }
-                
-                // Sammle alle Daten wenn wir auf Dateiinhalt warten
-                if (this.expectingFileContent) {
-                    this.terminalBuffer += text;
-                    
-                    if (this.parseFileContent(this.terminalBuffer, this.expectingFileContent)) {
-                        this.expectingFileContent = null;
-                        this.terminalBuffer = '';
-                        return;
-                    }
-                    
-                    // Zeige nur normale Terminal-Ausgaben an
-                    const cleanText = text.replace(/__FILE_CONTENT_START__|__FILE_CONTENT_END__/g, '');
-                    if (cleanText.trim()) {
-                        this.addToTerminalDirect(cleanText);
-                    }
-                    return;
-                }
-                
-                // Normale Terminal-Ausgabe
-                this.addToTerminalDirect(text);
             }
 
             async sendRawCommand(command) {
@@ -519,28 +410,6 @@ for i in range(10):
                 
                 const encoder = new TextEncoder();
                 await this.writer.write(encoder.encode(command));
-            }
-
-            async forceStop() {
-                // Aggressive Stopp-Sequenz
-                const stopSequence = [
-                    '\r\n', // Zuerst Enter, um evtl. halbfertige Eingaben zu löschen
-                    '\x03',  // Ctrl+C
-                    '\x03',  // Nochmal Ctrl+C
-                    '\x03',  // Und nochmal Ctrl+C
-                    '\x02',  // Ctrl+B (Raw REPL verlassen, zurück zum normalen REPL)
-                    '\r\n',  // Enter (um einen neuen Prompt zu bekommen)
-                ];
-                
-                this.addToTerminalDirect('DEBUG: forceStop sequence initiated...\n');
-                for (const cmd of stopSequence) {
-                    await this.sendRawCommand(cmd);
-                    // Debug-Ausgabe für jeden gesendeten Befehl (kann später entfernt werden)
-                    // Zeigt den Befehl als JSON-String an, um Steuerzeichen sichtbar zu machen
-                    this.addToTerminalDirect(`DEBUG: Sent ${JSON.stringify(cmd)} to ESP32\n`); 
-                    await new Promise(resolve => setTimeout(resolve, 150)); // Etwas längere Pause
-                }
-                this.addToTerminalDirect('DEBUG: forceStop sequence completed.\n');
             }
 
             async sendCommand() {
@@ -561,10 +430,6 @@ for i in range(10):
                 const code = document.getElementById('editor').value;
                 this.addToTerminal('\n=== Code wird ausgeführt ===\n');
                 
-                // Aggressive Stopp vor Ausführung
-                await this.forceStop();
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
                 // Paste-Modus für mehrzeiligen Code
                 await this.sendRawCommand('\x05'); // Ctrl+E (paste mode)
                 await new Promise(resolve => setTimeout(resolve, 100));
@@ -576,56 +441,14 @@ for i in range(10):
                 if (!this.isConnected) return;
                 
                 this.addToTerminal('\n🛑 Stoppe Ausführung...\n');
-                
-                // Setze Flag für direkte Ausgabe
-                this.isStopCommand = true;
-                
-                // Reset alle wartenden Operationen
-                this.expectingFileList = false;
-                this.expectingFileContent = null;
-                this.terminalBuffer = '';
-                if (this.fileListTimeout) {
-                    clearTimeout(this.fileListTimeout);
-                    this.fileListTimeout = null;
-                }
-                
-                await this.forceStop(); // Use the existing forceStop sequence
-                
-                // Reset Flag nach kurzer Zeit
-                setTimeout(() => {
-                    this.isStopCommand = false;
-                }, 2000);
+                await this.sendRawCommand('\x03'); // Ctrl+C
             }
 
             async softReset() {
                 if (!this.isConnected) return;
                 
                 this.addToTerminal('\n🔄 Soft Reset...\n');
-                
-                // Setze Flag für direkte Ausgabe
-                this.isStopCommand = true;
-                
-                // Reset alle wartenden Operationen
-                this.expectingFileList = false;
-                this.expectingFileContent = null;
-                this.terminalBuffer = '';
-                if (this.fileListTimeout) {
-                    clearTimeout(this.fileListTimeout);
-                    this.fileListTimeout = null;
-                }
-                
-                // Erst stoppen und REPL in sauberen Zustand bringen
-                await this.forceStop(); 
-                // Kurze Pause, um sicherzustellen, dass der REPL bereit ist für Ctrl+D
-                await new Promise(resolve => setTimeout(resolve, 100)); 
-                
-                // Dann Soft Reset
                 await this.sendRawCommand('\x04'); // Ctrl+D
-                
-                // Reset Flag nach kurzer Zeit
-                setTimeout(() => {
-                    this.isStopCommand = false;
-                }, 3000); // Timeout etwas länger lassen für den Reset-Vorgang
             }
 
             showUploadModal() {
@@ -642,10 +465,6 @@ for i in range(10):
                 
                 this.addToTerminal(`\n📤 Lade ${filename} hoch...\n`);
                 
-                // Aggressive Stopp vor Upload
-                await this.forceStop();
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
                 // Datei erstellen/überschreiben
                 const uploadCode = `
 with open('${filename}', 'w') as f:
@@ -659,7 +478,7 @@ print('Datei ${filename} gespeichert')
                 await this.sendRawCommand('\x04'); // Execute
                 
                 closeModal();
-                this.addToTerminal('💡 Klicke "Dateien auflisten" um die aktualisierte Liste zu sehen\n');
+                setTimeout(() => this.listFiles(), 1000);
             }
 
             async listFiles() {
@@ -667,278 +486,26 @@ print('Datei ${filename} gespeichert')
                 
                 this.addToTerminal('\n📁 Dateien werden aufgelistet...\n');
                 
-                // Reset state
-                this.terminalBuffer = '';
-                this.expectingFileList = true;
-                this.isStopCommand = false; // Kein Stopp-Befehl
-                
-                // Timeout für den Fall dass etwas schief geht
-                this.fileListTimeout = setTimeout(() => {
-                    if (this.expectingFileList) {
-                        this.expectingFileList = false;
-                        this.addToTerminal('❌ Timeout beim Laden der Dateiliste\n');
-                        this.terminalBuffer = '';
-                    }
-                }, 10000); // 10 Sekunden Timeout
-                
-                // Aggressive Stopp vor Dateiliste
-                await this.forceStop();
-                await new Promise(resolve => setTimeout(resolve, 400));
-                
                 const listCode = `
 import os
-try:
-    files = []
-    for file in os.listdir():
-        try:
-            stat = os.stat(file)
-            size = stat[6]
-            is_dir = stat[0] & 0x4000
-            files.append({
-                'name': file,
-                'size': size,
-                'is_dir': bool(is_dir)
-            })
-        except:
-            files.append({
-                'name': file,
-                'size': 0,
-                'is_dir': False
-            })
-    
-    print('__FILES_START__')
-    import json
-    print(json.dumps(files))
-    print('__FILES_END__')
-except Exception as e:
-    print('Fehler beim Auflisten der Dateien:', e)
+print('=== Dateien auf ESP32 ===')
+for file in os.listdir():
+    try:
+        stat = os.stat(file)
+        size = stat[6]
+        print(f'{file:<20} {size:>8} bytes')
+    except:
+        print(f'{file:<20} (Ordner)')
+print('========================')
 `;
                 
-                await this.sendRawCommand('\x05'); // Paste mode
+                await this.sendRawCommand('\x05');
                 await new Promise(resolve => setTimeout(resolve, 100));
                 await this.sendRawCommand(listCode);
-                await this.sendRawCommand('\x04'); // Execute
-            }
-
-            parseFileList(text) {
-                const startMarker = '__FILES_START__';
-                const endMarker = '__FILES_END__';
-                
-                const startIndex = text.indexOf(startMarker);
-                const endIndex = text.indexOf(endMarker);
-                
-                if (startIndex !== -1 && endIndex !== -1) {
-                    const jsonStart = startIndex + startMarker.length;
-                    const jsonData = text.substring(jsonStart, endIndex).trim();
-                    
-                    try {
-                        // Entferne mögliche zusätzliche Zeichen und Zeilenumbrüche
-                        const cleanJsonData = jsonData.replace(/^\s*\n|\n\s*$/g, '').trim();
-                        const files = JSON.parse(cleanJsonData);
-                        
-                        this.espFiles = files;
-                        this.updateFileList();
-                        this.addToTerminal(`✅ ${files.length} Dateien gefunden\n`);
-                        return true;
-                        
-                    } catch (error) {
-                        console.error('JSON Parse Error:', error);
-                        console.error('JSON Data:', jsonData);
-                        this.addToTerminal(`❌ Fehler beim Parsen der Dateiliste: ${error.message}\n`);
-                        return true; // Auch bei Fehler als "verarbeitet" markieren
-                    }
-                }
-                return false;
-            }
-
-            updateFileList() {
-                const fileList = document.getElementById('fileList');
-                fileList.innerHTML = '';
-                
-                if (this.espFiles.length === 0) {
-                    fileList.innerHTML = '<div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">Keine Dateien gefunden</div>';
-                    return;
-                }
-                
-                this.espFiles
-                    .sort((a, b) => {
-                        // Ordner zuerst, dann nach Name
-                        if (a.is_dir && !b.is_dir) return -1;
-                        if (!a.is_dir && b.is_dir) return 1;
-                        return a.name.localeCompare(b.name);
-                    })
-                    .forEach(file => {
-                        const item = document.createElement('div');
-                        item.className = 'file-item';
-                        if (file.name === this.selectedFile) {
-                            item.classList.add('selected');
-                        }
-                        
-                        const icon = file.is_dir ? '📁' : (file.name.endsWith('.py') ? '🐍' : '📄');
-                        const sizeText = file.is_dir ? '' : this.formatFileSize(file.size);
-                        
-                        item.innerHTML = `
-                            <span>${icon} ${file.name}</span>
-                            <div style="display: flex; align-items: center; gap: 4px;">
-                                <span class="file-size">${sizeText}</span>
-                                <div class="file-actions">
-                                    ${!file.is_dir ? `
-                                        <button class="file-action-btn" onclick="ide.downloadFile('${file.name}')" title="Datei laden">📥</button>
-                                        <button class="file-action-btn" onclick="ide.deleteFile('${file.name}')" title="Löschen">🗑️</button>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        `;
-                        
-                        if (!file.is_dir) {
-                            item.addEventListener('click', () => this.selectFile(file.name));
-                        }
-                        
-                        fileList.appendChild(item);
-                    });
-            }
-
-            formatFileSize(bytes) {
-                if (bytes === 0) return '0 B';
-                const k = 1024;
-                const sizes = ['B', 'KB', 'MB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-            }
-
-            selectFile(filename) {
-                this.selectedFile = filename;
-                this.updateFileList();
-                this.downloadFile(filename);
-            }
-
-            async downloadFile(filename) {
-                if (!this.isConnected) return;
-                
-                this.addToTerminal(`\n📥 Lade ${filename}...\n`);
-                
-                // Reset state
-                this.terminalBuffer = '';
-                this.expectingFileContent = filename;
-                this.isStopCommand = false; // Kein Stopp-Befehl
-                
-                // Aggressive Stopp vor Download
-                await this.forceStop();
-                await new Promise(resolve => setTimeout(resolve, 400));
-                
-                const downloadCode = `
-try:
-    with open('${filename}', 'r') as f:
-        content = f.read()
-    print('__FILE_CONTENT_START__')
-    print(repr(content))
-    print('__FILE_CONTENT_END__')
-except Exception as e:
-    print(f'Fehler beim Lesen der Datei: {e}')
-`;
-                
-                await this.sendRawCommand('\x05');
-                await new Promise(resolve => setTimeout(resolve, 100));
-                await this.sendRawCommand(downloadCode);
                 await this.sendRawCommand('\x04');
-            }
-
-            parseFileContent(text, filename) {
-                const startMarker = '__FILE_CONTENT_START__';
-                const endMarker = '__FILE_CONTENT_END__';
-                
-                const startIndex = text.indexOf(startMarker);
-                const endIndex = text.indexOf(endMarker);
-                
-                if (startIndex !== -1 && endIndex !== -1) {
-                    const contentStart = startIndex + startMarker.length;
-                    const reprContent = text.substring(contentStart, endIndex).trim();
-                    
-                    try {
-                        // Python repr()  rückgängig machen
-                        const content = eval(reprContent);
-                        
-                        // Datei im Editor öffnen
-                        this.switchToFile(filename, content);
-                        this.addToTerminal(`✅ ${filename} geladen (${content.length} Zeichen)\n`);
-                        return true;
-                        
-                    } catch (error) {
-                        this.addToTerminal(`❌ Fehler beim Parsen des Dateiinhalts: ${error.message}\n`);
-                        return true; // Auch bei Fehler als "verarbeitet" markieren
-                    }
-                }
-                return false;
-            }
-
-            switchToFile(filename, content) {
-                // Speichere aktuellen Inhalt
-                this.files[this.currentFile] = document.getElementById('editor').value;
-                
-                // Wechsle zur neuen Datei
-                this.currentFile = filename;
-                this.files[filename] = content;
-                
-                // Update Editor
-                document.getElementById('editor').value = content;
-                
-                // Update Tab
-                this.updateTabs();
-            }
-
-            updateTabs() {
-                const tabsContainer = document.querySelector('.file-tabs');
-                tabsContainer.innerHTML = '';
-                
-                Object.keys(this.files).forEach(filename => {
-                    const tab = document.createElement('button');
-                    tab.className = 'tab';
-                    tab.textContent = filename;
-                    tab.dataset.file = filename;
-                    
-                    if (filename === this.currentFile) {
-                        tab.classList.add('active');
-                    }
-                    
-                    tab.addEventListener('click', () => {
-                        this.switchToFile(filename, this.files[filename]);
-                    });
-                    
-                    tabsContainer.appendChild(tab);
-                });
-            }
-
-            async deleteFile(filename) {
-                if (!confirm(`Datei "${filename}" wirklich löschen?`)) return;
-                
-                this.addToTerminal(`\n🗑️ Lösche ${filename}...\n`);
-                
-                // Aggressive Stopp vor Delete
-                await this.forceStop();
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
-                const deleteCode = `
-try:
-    import os
-    os.remove('${filename}')
-    print('Datei ${filename} gelöscht')
-except Exception as e:
-    print(f'Fehler beim Löschen: {e}')
-`;
-                
-                await this.sendRawCommand('\x05');
-                await new Promise(resolve => setTimeout(resolve, 100));
-                await this.sendRawCommand(deleteCode);
-                await this.sendRawCommand('\x04');
-                
-                this.addToTerminal('💡 Klicke "Dateien auflisten" um die aktualisierte Liste zu sehen\n');
             }
 
             addToTerminal(text) {
-                this.addToTerminalDirect(text);
-            }
-
-            addToTerminalDirect(text) {
                 const terminal = document.getElementById('terminal');
                 terminal.textContent += text;
                 terminal.scrollTop = terminal.scrollHeight;
@@ -951,7 +518,7 @@ except Exception as e:
             updateUI() {
                 const connectBtn = document.getElementById('connectBtn');
                 const status = document.getElementById('status');
-                const buttons = ['runBtn', 'stopBtn', 'uploadBtn', 'listFilesBtn', 'softResetBtn', 'refreshFilesBtn'];
+                const buttons = ['runBtn', 'stopBtn', 'uploadBtn', 'listFilesBtn', 'softResetBtn'];
                 const terminalInput = document.getElementById('terminalInput');
                 
                 if (this.isConnected) {
@@ -966,9 +533,6 @@ except Exception as e:
                     status.className = 'status disconnected';
                     buttons.forEach(id => document.getElementById(id).disabled = true);
                     terminalInput.disabled = true;
-                    
-                    // File list leeren
-                    document.getElementById('fileList').innerHTML = '<div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">Verbinde mit ESP32 und klicke "Dateien auflisten"</div>';
                 }
             }
         }
