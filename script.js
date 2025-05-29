@@ -412,13 +412,13 @@ class MicroPythonIDE {
         const loadHardwareCode = `
 try:
     with open('hardware.txt', 'r') as f_hw:
-        print('===HARDWARE_CONTEXT_START===')
+        print('===HARDWARE_CONTEXT_' + 'START===')
         print(f_hw.read())
-        print('===HARDWARE_CONTEXT_END===')
+        print('===HARDWARE_CONTEXT_' + 'END===')
 except Exception as e_hw:
     print('===HARDWARE_CONTEXT_START===') # Send marker so isLoadingHardwareContext is reset
     print(f"Error reading hardware.txt: {e_hw}")
-    print('===HARDWARE_CONTEXT_END===')
+    print('===HARDWARE_CONTEXT_' + 'END===')
 `;
         await this.sendRawCommand('\x05'); // Paste-Modus
         await new Promise(resolve => setTimeout(resolve, 50));
