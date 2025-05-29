@@ -449,11 +449,16 @@
                 await new Promise(resolve => setTimeout(resolve, 50));
 
                 // Construct the script with \r line endings for paste mode
-                const pythonScriptSource = `with open('${this.currentFile}', 'r') as f:
-    exec(f.read())`; // Ensure standard 4-space indent, no leading/trailing newlines in string literal
-                // Replace all \n with \r (if any, for future multi-line constructs) 
-                // and add a final \r to terminate the last line.
-                const pythonScript = pythonScriptSource.replace(/\n/g, '\r') + '\r';
+
+                const pythonScriptSource = `try:
+    with open('${this.currentFile}', 'r') as f:
+        exec(f.read())
+except OSError:
+    print("Error: ${this.currentFile} not found")
+except SyntaxError as e:
+    print(f"SyntaxError in ${this.currentFile}: {e}")
+`;
+                const pythonScript = pythonScriptSource.replace(/\n/g, '\r') + '\r';                
 
                 await this.sendRawCommand('\x05'); // Ctrl-E: Paste-Modus starten
                 await new Promise(resolve => setTimeout(resolve, 100)); // Kurze Pause
