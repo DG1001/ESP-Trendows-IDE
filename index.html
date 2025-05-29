@@ -235,6 +235,24 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .prompt-panel {
+            display: flex;
+            padding: 10px;
+            background: #2d2d30;
+            border-top: 1px solid #3e3e42;
+        }
+
+        .prompt-panel input {
+            flex-grow: 1;
+            padding: 8px;
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            color: #d4d4d4;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -245,6 +263,7 @@
         <button class="btn" id="uploadBtn" disabled>Hochladen</button>
         <button class="btn" id="listFilesBtn" disabled>Dateien auflisten</button>
         <button class="btn danger" id="softResetBtn" disabled>Soft Reset</button>
+        <input type="text" id="deepSeekApiKeyInput" placeholder="DeepSeek API Key" style="margin-left: 10px; padding: 8px; background: #1e1e1e; border: 1px solid #3e3e42; color: #d4d4d4; border-radius: 4px; font-size: 12px; min-width: 200px;">
         <div class="status disconnected" id="status">Nicht verbunden</div>
     </div>
 
@@ -260,6 +279,10 @@
             </div>
             <div id="editor-container">
                 <div id="editor" style="height:100%"></div>
+            </div>
+            <div class="prompt-panel">
+                <input type="text" id="llmPromptInput" placeholder="Prompt für DeepSeek eingeben...">
+                <button class="btn" id="sendToLlmBtn">An DeepSeek senden</button>
             </div>
         </div>
 
@@ -300,9 +323,11 @@
                 this.currentFile = 'main.py';
                 this.editor = editor;
                 this.files = {'main.py': this.editor.getValue()};
+                this.deepSeekApiKey = localStorage.getItem('deepSeekApiKey') || '';
                 
                 this.initializeEventListeners();
                 this.checkWebSerialSupport();
+                document.getElementById('deepSeekApiKeyInput').value = this.deepSeekApiKey;
             }
 
             checkWebSerialSupport() {
@@ -336,6 +361,13 @@
                 this.editor.onDidChangeModelContent(() => {
                     this.files[this.currentFile] = this.editor.getValue();
                 });
+
+                document.getElementById('deepSeekApiKeyInput').addEventListener('input', (e) => {
+                    this.deepSeekApiKey = e.target.value;
+                    localStorage.setItem('deepSeekApiKey', this.deepSeekApiKey);
+                });
+
+                document.getElementById('sendToLlmBtn').addEventListener('click', () => this.callDeepSeekApi());
 
                 this.initializeResizer();
             }
@@ -398,6 +430,103 @@
                     document.body.style.cursor = 'col-resize'; // Zeigt den Cursor global an
                     document.body.style.userSelect = 'none'; // Verhindert Textauswahl global
                 });
+            }
+
+            async callDeepSeekApi() {
+                const prompt = document.getElementById('llmPromptInput').value;
+                const currentCode = this.editor.getValue();
+
+                if (!this.deepSeekApiKey) {
+                    this.addToTerminal('\n❌ Bitte zuerst einen DeepSeek API Key eingeben.\n');
+                    console.error('DeepSeek API Key fehlt.');
+                    alert('Bitte zuerst einen DeepSeek API Key im Feld oben rechts eingeben.');
+                    return;
+                }
+
+                if (!prompt) {
+                    this.addToTerminal('\nℹ️ Bitte einen Prompt für DeepSeek eingeben.\n');
+                    alert('Bitte einen Prompt für DeepSeek eingeben.');
+                    return;
+                }
+
+                this.addToTerminal('\n🤖 Sende Anfrage an DeepSeek...\n');
+                const sendToLlmBtn = document.getElementById('sendToLlmBtn');
+                sendToLlmBtn.disabled = true;
+                sendToLlmBtn.innerHTML = '<span class="spinner"></span> Sende...';
+
+                const API_URL = `https://api.deepseek.com/chat/completions`;
+                const systemPrompt = "You are a helpful assistant that generates MicroPython code for microcontrollers. Ensure the code is valid MicroPython and directly usable on devices like ESP32. Only output the Python code, without any surrounding text or explanations unless explicitly asked.";
+
+                const requestBody = {
+                    model: "deepseek-chat",
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: `${prompt}\n\nAktueller Code im Editor (falls vorhanden, ansonsten generiere neuen Code):\n\`\`\`python\n${currentCode}\n\`\`\`` }
+                    ],
+                    temperature: 0.7,
+                    // max_tokens: 2048, // Kann bei Bedarf angepasst werden
+                };
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.deepSeekApiKey}`
+                        },
+                        body: JSON.stringify(requestBody),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        console.error('DeepSeek API Error Response:', errorData);
+                        this.addToTerminal(`\n❌ Fehler von DeepSeek API: ${response.status} ${response.statusText}\nDetails: ${JSON.stringify(errorData.error?.message || errorData)}\n`);
+                        throw new Error(`API request failed with status ${response.status}: ${JSON.stringify(errorData)}`);
+                    }
+
+                    const data = await response.json();
+                    console.log('DeepSeek API Success Response:', data);
+
+                    if (data.choices && data.choices.length > 0 && data.choices[0].message && data.choices[0].message.content) {
+                        let llmOutput = data.choices[0].message.content;
+                        
+                        // Versuche, reinen Code aus Markdown-Codeblöcken zu extrahieren
+                        const codeBlockMatch = llmOutput.match(/```python\n([\s\S]*?)\n```|```([\s\S]*?)\n```/);
+                        let newCode = llmOutput; 
+
+                        if (codeBlockMatch) {
+                            newCode = codeBlockMatch[1] || codeBlockMatch[2]; 
+                            const textBefore = llmOutput.substring(0, codeBlockMatch.index).trim();
+                            const textAfter = llmOutput.substring(codeBlockMatch.index + codeBlockMatch[0].length).trim();
+                            if (textBefore) console.log("LLM Info (vor Codeblock):", textBefore);
+                            if (textAfter) console.log("LLM Info (nach Codeblock):", textAfter);
+                        } else {
+                             // Wenn kein expliziter Codeblock, aber die Ausgabe mit "python" beginnt (manchmal bei DeepSeek)
+                             if (llmOutput.toLowerCase().startsWith("python\n")) {
+                                 newCode = llmOutput.substring("python\n".length);
+                             }
+                             console.log("LLM Info (kein expliziter Python-Codeblock gefunden, verwende angepasste/gesamte Ausgabe als Code):", llmOutput);
+                        }
+                        
+                        // Entferne mögliche einleitende/abschließende Leerzeilen, die vom LLM kommen könnten
+                        newCode = newCode.trim();
+
+                        this.editor.setValue(newCode);
+                        this.files[this.currentFile] = newCode; 
+                        this.addToTerminal('\n✅ Code vom LLM erhalten und im Editor eingefügt.\n');
+                        document.getElementById('llmPromptInput').value = ''; 
+                    } else {
+                        console.warn('DeepSeek API: Keine gültigen Kandidaten in der Antwort gefunden.', data);
+                        this.addToTerminal('\n⚠️ DeepSeek hat keinen Code oder eine unerwartete Antwortstruktur zurückgegeben.\n');
+                    }
+
+                } catch (error) {
+                    console.error('Fehler bei der Anfrage an DeepSeek API:', error);
+                    this.addToTerminal(`\n❌ Fehler bei der Kommunikation mit DeepSeek: ${error.message}\n`);
+                } finally {
+                    sendToLlmBtn.disabled = false;
+                    sendToLlmBtn.innerHTML = 'An DeepSeek senden';
+                }
             }
 
             async toggleConnection() {
