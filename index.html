@@ -583,24 +583,7 @@ for i in range(10):
                     this.fileListTimeout = null;
                 }
                 
-                // Sehr aggressive Stopp-Sequenz
-                const stopCommands = [
-                    '\x03',  // Ctrl+C
-                    '\x03',  // Nochmal
-                    '\x03',  // Und nochmal
-                    '\x18',  // Ctrl+X (alternative)
-                    '\x1a',  // Ctrl+Z (suspend)
-                    '\x03',  // Nochmal Ctrl+C
-                ];
-                
-                for (const cmd of stopCommands) {
-                    await this.sendRawCommand(cmd);
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                }
-                
-                // Zurück zum normalen REPL
-                await new Promise(resolve => setTimeout(resolve, 200));
-                await this.sendRawCommand('\x02'); // Ctrl+B
+                await this.forceStop(); // Use the existing forceStop sequence
                 
                 // Reset Flag nach kurzer Zeit
                 setTimeout(() => {
@@ -625,10 +608,10 @@ for i in range(10):
                     this.fileListTimeout = null;
                 }
                 
-                // Stoppe zuerst alles
-                await this.sendRawCommand('\x03'); // Ctrl+C
-                await this.sendRawCommand('\x03'); // Nochmal
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Erst stoppen und REPL in sauberen Zustand bringen
+                await this.forceStop(); 
+                // Kurze Pause, um sicherzustellen, dass der REPL bereit ist für Ctrl+D
+                await new Promise(resolve => setTimeout(resolve, 100)); 
                 
                 // Dann Soft Reset
                 await this.sendRawCommand('\x04'); // Ctrl+D
@@ -636,7 +619,7 @@ for i in range(10):
                 // Reset Flag nach kurzer Zeit
                 setTimeout(() => {
                     this.isStopCommand = false;
-                }, 3000);
+                }, 3000); // Timeout etwas länger lassen für den Reset-Vorgang
             }
 
             showUploadModal() {
