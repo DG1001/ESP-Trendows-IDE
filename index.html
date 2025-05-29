@@ -449,12 +449,10 @@
                 await new Promise(resolve => setTimeout(resolve, 50));
 
                 // Construct the script with \r line endings for paste mode
-                // The template literal below will have \n characters for newlines.
-                const pythonScriptSource = `
-with open('${this.currentFile}', 'r') as f:
-     exec(f.read())
-`;
-                // Replace all \n with \r, and add a final \r to terminate the last line.
+                const pythonScriptSource = `with open('${this.currentFile}', 'r') as f:
+    exec(f.read())`; // Ensure standard 4-space indent, no leading/trailing newlines in string literal
+                // Replace all \n with \r (if any, for future multi-line constructs) 
+                // and add a final \r to terminate the last line.
                 const pythonScript = pythonScriptSource.replace(/\n/g, '\r') + '\r';
 
                 await this.sendRawCommand('\x05'); // Ctrl-E: Paste-Modus starten
