@@ -268,6 +268,9 @@
         <div class="modal-content">
             <h3>Datei speichern als:</h3>
             <input type="text" id="filenameInput" placeholder="dateiname.py">
+            <div id="uploadProgressBarContainer" style="margin-top: 10px; background-color: #1e1e1e; border-radius: 4px; display: none;">
+                <div id="uploadProgressBar" style="width: 0%; height: 10px; background-color: #0e639c; border-radius: 4px; text-align: center; line-height: 10px; font-size: 8px; color: white;"></div>
+            </div>
             <div style="margin-top: 15px;">
                 <button class="btn" id="saveFileBtn">Speichern</button>
                 <button class="btn" onclick="closeModal()">Abbrechen</button>
@@ -488,6 +491,12 @@ except SyntaxError as e:
                 document.getElementById('filenameModal').style.display = 'block';
                 document.getElementById('filenameInput').value = this.currentFile;
                 document.getElementById('filenameInput').focus();
+                // Fortschrittsbalken zurücksetzen und ausblenden
+                const progressBarContainer = document.getElementById('uploadProgressBarContainer');
+                const progressBar = document.getElementById('uploadProgressBar');
+                progressBar.style.width = '0%';
+                progressBar.textContent = '';
+                progressBarContainer.style.display = 'none';
             }
 
             async uploadFile() {
@@ -502,6 +511,12 @@ except SyntaxError as e:
                 this.currentFile = filename;
                 const chunkSize = 200; // Noch kleinere Chunk-Größe
                 const totalChunks = Math.ceil(code.length / chunkSize);
+
+                const progressBarContainer = document.getElementById('uploadProgressBarContainer');
+                const progressBar = document.getElementById('uploadProgressBar');
+                progressBar.style.width = '0%';
+                progressBar.textContent = '0%';
+                progressBarContainer.style.display = 'block';
                 
                 this.addToTerminal(`\n📤 Lade ${filename} hoch (${code.length} Zeichen, ${totalChunks} Teile)...\n`);
                 this.addToTerminal('⚠️ Bitte warten während die Datei hochgeladen wird...\n');
@@ -534,8 +549,11 @@ except SyntaxError as e:
                             // Fortschritt anzeigen
                             const progress = Math.round(((i + 1) / totalChunks) * 100);
                             this.addToTerminal(`\r🔼 Hochgeladen: ${progress}% (${(i + 1) * chunkSize}/${code.length})`);
+                            progressBar.style.width = progress + '%';
+                            progressBar.textContent = progress + '%';
                         } catch (error) {
                             this.addToTerminal(`\n❌ Fehler bei Chunk ${i+1}: ${error.message}\n`);
+                            progressBarContainer.style.display = 'none'; // Fortschrittsbalken bei Fehler ausblenden
                             throw error;
                         }
                     }
@@ -548,12 +566,21 @@ except SyntaxError as e:
                     await new Promise(resolve => setTimeout(resolve, 100)); // Reduziert von 200ms
                     
                     this.addToTerminal(`\n✅ ${filename} erfolgreich hochgeladen!\n`);
+                    progressBar.textContent = '100%'; // Sicherstellen, dass es 100% anzeigt
                     
                 } catch (error) {
                     this.addToTerminal(`\n❌ Fehler beim Hochladen: ${error.message}\n`);
+                    progressBarContainer.style.display = 'none'; // Fortschrittsbalken bei Fehler ausblenden
                 } finally {
-                    closeModal();
-                    setTimeout(() => this.listFiles(), 1000);
+                    // Kurze Verzögerung, bevor das Modal geschlossen wird, damit der Benutzer 100% sieht
+                    setTimeout(() => {
+                        closeModal();
+                        // Fortschrittsbalken für das nächste Mal ausblenden (wird auch in showUploadModal gemacht, aber sicher ist sicher)
+                        progressBarContainer.style.display = 'none';
+                        progressBar.style.width = '0%';
+                        progressBar.textContent = '';
+                    }, 500);
+                    setTimeout(() => this.listFiles(), 1000); // listFiles nach dem Schließen des Modals
                 }
             }
 
