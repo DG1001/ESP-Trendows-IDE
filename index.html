@@ -258,9 +258,10 @@
 <body>
     <div class="toolbar">
         <button class="btn" id="connectBtn">Mit ESP32 verbinden</button>
+        <button class="btn" id="newFileBtn">Neu</button> 
         <button class="btn" id="runBtn" disabled>Ausführen (F5)</button>
         <button class="btn" id="stopBtn" disabled>Stopp</button>
-        <button class="btn" id="uploadBtn" disabled>Hochladen</button>
+        <button class="btn" id="uploadBtn" disabled>Hochladen</button> <!-- Bleibt initial disabled -->
         <button class="btn" id="listFilesBtn" disabled>Dateien auflisten</button>
         <button class="btn danger" id="softResetBtn" disabled>Soft Reset</button>
         <input type="password" id="deepSeekApiKeyInput" placeholder="DeepSeek API Key" style="margin-left: 10px; padding: 8px; background: #1e1e1e; border: 1px solid #3e3e42; color: #d4d4d4; border-radius: 4px; font-size: 12px; min-width: 150px;">
@@ -362,6 +363,7 @@
                     if (e.key === 'Enter') this.sendCommand();
                 });
                 document.getElementById('saveFileBtn').addEventListener('click', () => this.uploadFile());
+                document.getElementById('newFileBtn').addEventListener('click', () => this.newFile());
 
                 // F5 für Ausführen
                 document.addEventListener('keydown', (e) => {
@@ -658,6 +660,27 @@
                 this.hideDiffAndRestoreEditor();
             }
 
+            updateActiveTab(filename) {
+                const activeTab = document.querySelector('.file-tabs .tab.active');
+                if (activeTab) {
+                    activeTab.textContent = filename;
+                    activeTab.dataset.file = filename;
+                }
+            }
+
+            newFile() {
+                if (this.diffEditor) { // Wenn in Diff-Ansicht, zuerst Änderungen verwerfen
+                    this.rejectLLMChanges(); 
+                }
+                this.editor.setValue('');
+                this.currentFile = 'untitled.py'; // Standardmäßig .py
+                this.files[this.currentFile] = '';
+                this.updateActiveTab(this.currentFile);
+                // Upload-Button aktivieren, wenn verbunden, da jetzt eine (leere) Datei zum Speichern vorhanden ist
+                document.getElementById('uploadBtn').disabled = !this.isConnected;
+                this.addToTerminal(`\n✨ Neue Datei '${this.currentFile}' im Editor erstellt.\n`);
+            }
+
             async toggleConnection() {
                 if (this.isConnected) {
                     await this.disconnect();
@@ -834,13 +857,14 @@ except SyntaxError as e:
             async uploadFile() {
                 const filename = document.getElementById('filenameInput').value;
                 if (!filename) return;
-                if (!filename.endsWith('.py')) {
-                    this.addToTerminal('\n❌ Dateiname muss mit .py enden\n');
+                if (!filename.endsWith('.py') && !filename.endsWith('.txt')) {
+                    this.addToTerminal('\n❌ Dateiname muss mit .py oder .txt enden\n');
                     return;
                 }
                 
                 const code = this.editor.getValue();
                 this.currentFile = filename;
+                this.updateActiveTab(filename); // Tab aktualisieren
                 const chunkSize = 200; // Noch kleinere Chunk-Größe
                 const totalChunks = Math.ceil(code.length / chunkSize);
 
@@ -938,7 +962,8 @@ except Exception as e:
                 
                 // Datei im Editor anzeigen
                 this.currentFile = filename;
-                this.editor.setValue('');
+                this.updateActiveTab(filename); // Tab aktualisieren
+                this.editor.setValue(''); // Inhalt wird durch Lesevorgang gefüllt
             }
 
             parseFileContent(text) {
@@ -1029,20 +1054,24 @@ print('===FILELIST_END===')
             updateUI() {
                 const connectBtn = document.getElementById('connectBtn');
                 const status = document.getElementById('status');
-                const buttons = ['runBtn', 'stopBtn', 'uploadBtn', 'listFilesBtn', 'softResetBtn'];
+                // 'newFileBtn' wird hier nicht mehr aufgeführt, da er immer aktiv sein soll.
+                // 'uploadBtn' wird separat behandelt (z.B. in newFile oder wenn eine Datei geladen wird).
+                const buttonsToToggle = ['runBtn', 'stopBtn', 'listFilesBtn', 'softResetBtn'];
                 const terminalInput = document.getElementById('terminalInput');
                 
                 if (this.isConnected) {
                     connectBtn.textContent = 'Trennen';
                     status.textContent = 'Verbunden';
                     status.className = 'status connected';
-                    buttons.forEach(id => document.getElementById(id).disabled = false);
+                    buttonsToToggle.forEach(id => document.getElementById(id).disabled = false);
+                    document.getElementById('uploadBtn').disabled = false; // Generell Upload erlauben wenn verbunden
                     terminalInput.disabled = false;
                 } else {
                     connectBtn.textContent = 'Mit ESP32 verbinden';
                     status.textContent = 'Nicht verbunden';
                     status.className = 'status disconnected';
-                    buttons.forEach(id => document.getElementById(id).disabled = true);
+                    buttonsToToggle.forEach(id => document.getElementById(id).disabled = true);
+                    document.getElementById('uploadBtn').disabled = true; // Upload nur wenn verbunden
                     terminalInput.disabled = true;
                 }
             }
