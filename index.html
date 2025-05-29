@@ -408,6 +408,16 @@ for i in range(10):
                             }
                             buffer = '';
                         }
+                        
+                        // Check for file content output
+                        if (buffer.includes('===FILE_CONTENT_END===')) {
+                            const content = this.parseFileContent(buffer);
+                            if (content) {
+                                document.getElementById('editor').value = content;
+                                this.files[this.currentFile] = content;
+                            }
+                            buffer = '';
+                        }
                     }
                 } catch (error) {
                     if (this.isConnected) {
@@ -511,6 +521,22 @@ except Exception as e:
                 await new Promise(resolve => setTimeout(resolve, 100));
                 await this.sendRawCommand(loadCode);
                 await this.sendRawCommand('\x04');
+                
+                // Datei im Editor anzeigen
+                this.currentFile = filename;
+                document.getElementById('editor').value = '';
+            }
+
+            parseFileContent(text) {
+                const startMarker = '===FILE_CONTENT_START===';
+                const endMarker = '===FILE_CONTENT_END===';
+                
+                const start = text.indexOf(startMarker);
+                const end = text.indexOf(endMarker);
+                
+                if (start === -1 || end === -1) return null;
+                
+                return text.substring(start + startMarker.length, end).trim();
             }
 
             async listFiles() {
