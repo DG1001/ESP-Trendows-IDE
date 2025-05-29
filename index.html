@@ -492,10 +492,10 @@ for i in range(10):
                 try {
                     // Datei erstellen
                     await this.sendRawCommand('\x05');
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Reduziert von 200ms
                     await this.sendRawCommand(`f=open('${filename}','w')\r\n`);
                     await this.sendRawCommand('\x04');
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Reduziert von 200ms
                     
                     // Code in Chunks hochladen
                     for (let i = 0; i < totalChunks; i++) {
@@ -509,10 +509,10 @@ for i in range(10):
                         
                         try {
                             await this.sendRawCommand('\x05');
-                            await new Promise(resolve => setTimeout(resolve, 200));
+                            await new Promise(resolve => setTimeout(resolve, 100)); // Reduziert von 200ms
                             await this.sendRawCommand(`f.write('${escapedChunk}')\r\n`);
                             await this.sendRawCommand('\x04');
-                            await new Promise(resolve => setTimeout(resolve, 200));
+                            await new Promise(resolve => setTimeout(resolve, 100)); // Reduziert von 200ms
                             
                             // Fortschritt anzeigen
                             const progress = Math.round(((i + 1) / totalChunks) * 100);
@@ -525,10 +525,10 @@ for i in range(10):
                     
                     // Datei schließen
                     await this.sendRawCommand('\x05');
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Reduziert von 200ms
                     await this.sendRawCommand('f.close()\r\n');
                     await this.sendRawCommand('\x04');
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Reduziert von 200ms
                     
                     this.addToTerminal(`\n✅ ${filename} erfolgreich hochgeladen!\n`);
                     
