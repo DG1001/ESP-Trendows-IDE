@@ -536,7 +536,10 @@ except Exception as e:
                 
                 if (start === -1 || end === -1) return null;
                 
-                return text.substring(start + startMarker.length, end).trim();
+                let content = text.substring(start + startMarker.length, end);
+                // Entferne überflüssige Leerzeilen am Anfang und Ende
+                content = content.replace(/^\n+|\n+$/g, '');
+                return content;
             }
 
             async listFiles() {
