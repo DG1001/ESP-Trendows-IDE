@@ -444,15 +444,13 @@
                 
                 this.addToTerminal(`\n=== Führe ${this.currentFile} aus ===\n`);
                 
-                // Datei ausführen mit import
+                // Datei direkt ausführen
                 const runCode = `
-import uos
-if '${this.currentFile}' in uos.listdir():
-    module = __import__('${this.currentFile.replace('.py', '')}')
-    if hasattr(module, 'main'):
-        module.main()
-else:
-    print('Datei nicht gefunden')
+try:
+    exec(open('${this.currentFile}').read())
+    print('\\n✅ Ausführung abgeschlossen')
+except Exception as e:
+    print('\\n❌ Fehler:', e)
 `;
                 
                 await this.sendRawCommand('\x05'); // Paste mode
