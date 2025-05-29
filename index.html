@@ -444,19 +444,13 @@
                 
                 this.addToTerminal(`\n=== Führe ${this.currentFile} aus ===\n`);
                 
-                // Datei direkt ausführen
-                const runCode = `
-try:
-    exec(open('${this.currentFile}').read())
-    print('\\n✅ Ausführung abgeschlossen')
-except Exception as e:
-    print('\\n❌ Fehler:', e)
-`;
-                
-                await this.sendRawCommand('\x05'); // Paste mode
+                // Einfach den Dateinamen senden, um die Datei auszuführen
+                await this.sendRawCommand('\r\n'); // Neue Zeile
                 await new Promise(resolve => setTimeout(resolve, 100));
-                await this.sendRawCommand(runCode);
-                await this.sendRawCommand('\x04'); // Execute
+                
+                // Direktes Ausführen ohne Paste-Modus
+                const moduleName = this.currentFile.replace('.py', '');
+                await this.sendRawCommand(`import ${moduleName}\r\n`);
             }
 
             async stopExecution() {
