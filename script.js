@@ -929,7 +929,10 @@ print('===FILELIST_END===')
         // Prüfen, ob hardware.txt vorhanden ist und eine Datei ist, dann laden/aktualisieren
         const hardwareTxtEntry = files.find(f => f.name === 'hardware.txt');
         if (hardwareTxtEntry && hardwareTxtEntry.size !== 'folder') {
-            this.fetchHardwareContextFile();
+            // Add a delay before fetching hardware.txt
+            setTimeout(() => {
+                this.fetchHardwareContextFile();
+            }, 500);
         } else {
             if (this.hardwareContext) { // hardware.txt not found (as a file), clear context
                 this.hardwareContext = '';
