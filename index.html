@@ -121,9 +121,11 @@
         }
 
         .terminal-panel {
-            width: 40%;
+            /* width: 40%; wird durch flex-basis ersetzt */
+            flex: 0 0 40%; /* Nicht wachsen, nicht schrumpfen, Basisbreite 40% */
             display: flex;
             flex-direction: column;
+            min-width: 150px; /* Mindestbreite für das Terminal */
             background: #0c0c0c;
         }
 
@@ -160,6 +162,7 @@
 
         .file-browser {
             width: 200px;
+            flex-shrink: 0; /* Verhindert, dass der File-Browser schrumpft */
             background: #252526;
             border-right: 1px solid #3e3e42;
             padding: 10px;
@@ -244,7 +247,7 @@
             <div id="fileList"></div>
         </div>
 
-        <div class="editor-panel">
+        <div class="editor-panel" id="editorPanel">
             <div class="file-tabs">
                 <button class="tab active" data-file="main.py">main.py</button>
             </div>
@@ -253,7 +256,9 @@
             </div>
         </div>
 
-        <div class="terminal-panel">
+        <div id="resizerVertical"></div>
+
+        <div class="terminal-panel" id="terminalPanel">
             <div class="terminal-header">
                 <span>REPL Terminal</span>
                 <button class="btn" id="clearTerminalBtn">Löschen</button>
@@ -323,6 +328,68 @@
                 // Editor Änderungen speichern
                 this.editor.onDidChangeModelContent(() => {
                     this.files[this.currentFile] = this.editor.getValue();
+                });
+
+                this.initializeResizer();
+            }
+
+            initializeResizer() {
+                const resizer = document.getElementById('resizerVertical');
+                const editorPanel = document.getElementById('editorPanel');
+                const terminalPanel = document.getElementById('terminalPanel');
+                const fileBrowser = document.querySelector('.file-browser');
+
+                let initialX = 0;
+                let initialTerminalWidth = 0;
+
+                const onMouseMove = (e) => {
+                    const dx = e.clientX - initialX;
+                    let newTerminalWidth = initialTerminalWidth - dx;
+
+                    const mainContentWidth = resizer.parentElement.offsetWidth;
+                    const fileBrowserWidth = fileBrowser.offsetWidth;
+                    const resizerWidth = resizer.offsetWidth;
+                    
+                    const minPanelPixelWidth = 150; // Mindestbreite für Editor und Terminal in Pixeln
+
+                    const maxTerminalWidth = mainContentWidth - fileBrowserWidth - resizerWidth - minPanelPixelWidth;
+                    
+                    if (newTerminalWidth < minPanelPixelWidth) {
+                        newTerminalWidth = minPanelPixelWidth;
+                    }
+                    if (newTerminalWidth > maxTerminalWidth) {
+                        newTerminalWidth = maxTerminalWidth;
+                    }
+                    
+                    const currentEditorWidth = mainContentWidth - fileBrowserWidth - resizerWidth - newTerminalWidth;
+                    if (currentEditorWidth < minPanelPixelWidth) {
+                        newTerminalWidth = mainContentWidth - fileBrowserWidth - resizerWidth - minPanelPixelWidth;
+                        if (newTerminalWidth < minPanelPixelWidth) newTerminalWidth = minPanelPixelWidth; // Erneut prüfen
+                    }
+
+                    terminalPanel.style.flexBasis = `${newTerminalWidth}px`;
+
+                    if (this.editor && typeof this.editor.layout === 'function') {
+                        this.editor.layout();
+                    }
+                };
+
+                const onMouseUp = () => {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                    document.body.style.cursor = 'default';
+                    document.body.style.userSelect = 'auto';
+                };
+
+                resizer.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); // Verhindert Textauswahl während des Ziehens
+                    initialX = e.clientX;
+                    initialTerminalWidth = terminalPanel.offsetWidth;
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                    document.body.style.cursor = 'col-resize'; // Zeigt den Cursor global an
+                    document.body.style.userSelect = 'none'; // Verhindert Textauswahl global
                 });
             }
 
