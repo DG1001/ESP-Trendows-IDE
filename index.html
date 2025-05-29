@@ -524,17 +524,23 @@ for i in range(10):
             async forceStop() {
                 // Aggressive Stopp-Sequenz
                 const stopSequence = [
+                    '\r\n', // Zuerst Enter, um evtl. halbfertige Eingaben zu löschen
                     '\x03',  // Ctrl+C
                     '\x03',  // Nochmal Ctrl+C
-                    '\x03',  // Und nochmal
-                    '\x02',  // Ctrl+B (Normal REPL)
-                    '\r\n',  // Enter
+                    '\x03',  // Und nochmal Ctrl+C
+                    '\x02',  // Ctrl+B (Raw REPL verlassen, zurück zum normalen REPL)
+                    '\r\n',  // Enter (um einen neuen Prompt zu bekommen)
                 ];
                 
+                this.addToTerminalDirect('DEBUG: forceStop sequence initiated...\n');
                 for (const cmd of stopSequence) {
                     await this.sendRawCommand(cmd);
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    // Debug-Ausgabe für jeden gesendeten Befehl (kann später entfernt werden)
+                    // Zeigt den Befehl als JSON-String an, um Steuerzeichen sichtbar zu machen
+                    this.addToTerminalDirect(`DEBUG: Sent ${JSON.stringify(cmd)} to ESP32\n`); 
+                    await new Promise(resolve => setTimeout(resolve, 150)); // Etwas längere Pause
                 }
+                this.addToTerminalDirect('DEBUG: forceStop sequence completed.\n');
             }
 
             async sendCommand() {
