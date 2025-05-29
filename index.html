@@ -537,6 +537,87 @@
                 }
             }
 
+            showDiff(originalCode, newCode) {
+                this.originalEditorDiv.style.display = 'none'; // Haupteditor ausblenden
+
+                // Vorherigen Diff-Editor entfernen, falls vorhanden
+                if (this.diffEditorContainerDiv) {
+                    this.diffEditorContainerDiv.remove();
+                }
+                if (this.diffEditor) {
+                    this.diffEditor.dispose(); // Wichtig: Monaco Editor Instanzen disposen
+                    this.diffEditor = null;
+                }
+
+                this.diffEditorContainerDiv = document.createElement('div');
+                this.diffEditorContainerDiv.style.width = '100%';
+                this.diffEditorContainerDiv.style.height = '100%'; // Nimmt die volle Höhe des Parents
+                this.editorContainerDiv.appendChild(this.diffEditorContainerDiv);
+
+                this.diffEditor = monaco.editor.createDiffEditor(this.diffEditorContainerDiv, {
+                    theme: 'vs-dark',
+                    automaticLayout: true,
+                    readOnly: false, // Erlaube Bearbeitung in der "modified" Seite, falls gewünscht
+                    originalEditable: false, // Original sollte nicht bearbeitbar sein
+                    renderSideBySide: true // Standard ist nebeneinander
+                });
+
+                const originalModel = monaco.editor.createModel(originalCode, 'python');
+                const modifiedModel = monaco.editor.createModel(newCode, 'python');
+
+                this.diffEditor.setModel({
+                    original: originalModel,
+                    modified: modifiedModel
+                });
+
+                // Buttons im Prompt-Panel umschalten
+                document.getElementById('llmPromptInput').style.display = 'none';
+                document.getElementById('sendToLlmBtn').style.display = 'none';
+                document.getElementById('acceptLlmChangesBtn').style.display = 'inline-block';
+                document.getElementById('rejectLlmChangesBtn').style.display = 'inline-block';
+            }
+
+            hideDiffAndRestoreEditor() {
+                if (this.diffEditor) {
+                    // Modelle explizit disposen, bevor der Editor disposed wird
+                    const model = this.diffEditor.getModel();
+                    if (model && model.original) model.original.dispose();
+                    if (model && model.modified) model.modified.dispose();
+                    this.diffEditor.dispose();
+                    this.diffEditor = null;
+                }
+                if (this.diffEditorContainerDiv) {
+                    this.diffEditorContainerDiv.remove();
+                    this.diffEditorContainerDiv = null;
+                }
+                this.originalEditorDiv.style.display = 'block';
+                this.editor.layout(); // Haupteditor neu zeichnen lassen
+
+                // Buttons im Prompt-Panel zurücksetzen
+                document.getElementById('llmPromptInput').style.display = 'block'; // Zurück zu block oder initial
+                document.getElementById('llmPromptInput').style.flexGrow = '1'; // explizit wiederherstellen
+                document.getElementById('sendToLlmBtn').style.display = 'inline-block';
+                document.getElementById('sendToLlmBtn').disabled = false; // Sicherstellen, dass der Senden-Button wieder aktiv ist
+                document.getElementById('acceptLlmChangesBtn').style.display = 'none';
+                document.getElementById('rejectLlmChangesBtn').style.display = 'none';
+                document.getElementById('llmPromptInput').value = ''; // Prompt-Feld leeren
+            }
+
+            acceptLLMChanges() {
+                if (!this.diffEditor) return;
+                const acceptedCode = this.diffEditor.getModel().modified.getValue();
+                this.editor.setValue(acceptedCode);
+                this.files[this.currentFile] = acceptedCode;
+                this.addToTerminal('\n✅ LLM-Änderungen übernommen.\n');
+                this.hideDiffAndRestoreEditor();
+            }
+
+            rejectLLMChanges() {
+                if (!this.diffEditor) return; // Sollte nicht passieren, aber sicher ist sicher
+                this.addToTerminal('\n❌ LLM-Änderungen abgelehnt.\n');
+                this.hideDiffAndRestoreEditor();
+            }
+
             async toggleConnection() {
                 if (this.isConnected) {
                     await this.disconnect();
