@@ -1166,14 +1166,13 @@ except Exception as e:
                 if (start === -1 || end === -1) return null; // Nicht vollständig
                 
                 let content = text.substring(start + startMarker.length, end);
-                content = content.replace(/\r\n/g, '\n').trim(); // Normalisieren und trimmen
+                content = content.replace(/\r\n/g, '\n').trim();
                 
-                // Prüfen, ob ein Fehler beim Lesen gemeldet wurde
-                if (content.startsWith("Fehler beim Lesen von hardware.txt:")) {
-                    this.addToTerminal(`\n⚠️ ${content}\n`); // Fehler im Terminal anzeigen
-                    return ''; // Leeren Kontext zurückgeben, da Datei nicht lesbar war
+                if (content.startsWith("Error reading hardware.txt:")) {
+                    this.addToTerminal(`\n⚠️ ${content}\n`); 
+                    return { content: '', status: 'error', processedLength: processedLength };
                 }
-                return content;
+                return { content: content, status: 'success', processedLength: processedLength };
             }
 
             async listFiles() {
