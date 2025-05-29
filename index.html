@@ -87,10 +87,17 @@
         }
 
         .editor-panel {
-            flex: 1;
+            flex: 1; /* Nimmt verfügbaren Platz ein */
             display: flex;
             flex-direction: column;
-            border-right: 1px solid #3e3e42;
+            min-width: 200px; /* Mindestbreite für den Editor */
+        }
+
+        #resizerVertical {
+            width: 5px;
+            background-color: #3e3e42;
+            cursor: col-resize;
+            flex-shrink: 0; /* Verhindert, dass der Resizer schrumpft */
         }
 
         .file-tabs {
