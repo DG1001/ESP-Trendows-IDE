@@ -518,11 +518,11 @@
                 const API_URL = `https://api.deepseek.com/chat/completions`;
                 const systemPrompt = "You are a helpful assistant that generates MicroPython code for microcontrollers. Ensure the code is valid MicroPython and directly usable on devices like ESP32. Only output the Python code, without any surrounding text or explanations unless explicitly asked.";
                 
-                let userPromptContent = `${prompt}\n\nAktueller Code im Editor (falls vorhanden, ansonsten generiere neuen Code):\n\`\`\`python\n${originalCode}\n\`\`\``;
+                let userPromptContent = `${prompt}\n\nCurrent code in editor (if any, otherwise generate new code):\n\`\`\`python\n${originalCode}\n\`\`\``;
 
                 if (this.hardwareContext) {
-                    userPromptContent = `Beachte die folgende Hardware-Konfiguration:\n<hardware_info>\n${this.hardwareContext}\n</hardware_info>\n\n${userPromptContent}`;
-                    this.addToTerminal('\nℹ️ Hardware-Kontext wird an LLM gesendet.\n');
+                    userPromptContent = `Consider the following hardware configuration:\n<hardware_info>\n${this.hardwareContext}\n</hardware_info>\n\n${userPromptContent}`;
+                    this.addToTerminal('\nℹ️ Sending hardware context to LLM.\n');
                 }
 
                 const requestBody = {
@@ -733,11 +733,11 @@
 
             async fetchHardwareContextFile() {
                 if (!this.isConnected) return;
-                this.addToTerminal('\nℹ️ Versuche Hardware-Kontext (hardware.txt) zu laden...\n');
+                this.addToTerminal('\nℹ️ Attempting to load hardware context (hardware.txt)...\n');
                 this.isLoadingHardwareContext = true;
-                this.hardwareContext = ''; // Alten Kontext löschen
+                this.hardwareContext = ''; // Clear old context
 
-                this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (vor Hardware-Kontext-Laden)...\n');
+                this.addToTerminal('🛑 Stopping any running scripts (before loading hardware context)...\n');
                 await this.sendRawCommand('\x03'); // Ctrl+C
                 await new Promise(resolve => setTimeout(resolve, 50));
                 await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
@@ -750,8 +750,8 @@ try:
         print(f_hw.read())
         print('===HARDWARE_CONTEXT_END===')
 except Exception as e_hw:
-    print('===HARDWARE_CONTEXT_START===') # Sende Marker, damit isLoadingHardwareContext zurückgesetzt wird
-    print(f"Fehler beim Lesen von hardware.txt: {e_hw}")
+    print('===HARDWARE_CONTEXT_START===') # Send marker so isLoadingHardwareContext is reset
+    print(f"Error reading hardware.txt: {e_hw}")
     print('===HARDWARE_CONTEXT_END===')
 `;
                 await this.sendRawCommand('\x05'); // Paste-Modus
@@ -1237,12 +1237,12 @@ print('===FILELIST_END===')
                 if (hardwareTxtEntry && hardwareTxtEntry.size !== 'folder') {
                     this.fetchHardwareContextFile();
                 } else {
-                    if (this.hardwareContext) { // hardware.txt nicht (als Datei) gefunden, Kontext löschen
+                    if (this.hardwareContext) { // hardware.txt not found (as a file), clear context
                         this.hardwareContext = '';
                         if (hardwareTxtEntry && hardwareTxtEntry.size === 'folder') {
-                            this.addToTerminal('\nℹ️ Hardware-Kontext (hardware.txt) ist ein Ordner und wird nicht geladen.\n');
+                            this.addToTerminal('\nℹ️ Hardware context (hardware.txt) is a directory and will not be loaded.\n');
                         } else {
-                            this.addToTerminal('\nℹ️ Hardware-Kontext (hardware.txt) nicht als Datei gefunden oder entfernt.\n');
+                            this.addToTerminal('\nℹ️ Hardware context (hardware.txt) not found as a file or removed.\n');
                         }
                     }
                 }
