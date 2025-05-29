@@ -345,6 +345,7 @@ for i in range(10):
                 this.expectingFileList = false;
                 this.expectingFileContent = null;
                 this.fileListTimeout = null;
+                this.isStopCommand = false; // Flag für Stopp-Befehle
                 
                 this.initializeEventListeners();
                 this.checkWebSerialSupport();
@@ -464,6 +465,12 @@ for i in range(10):
             }
 
             processTerminalData(text) {
+                // Bei Stopp-Befehlen immer alles direkt anzeigen
+                if (this.isStopCommand) {
+                    this.addToTerminalDirect(text);
+                    return;
+                }
+
                 // Sammle alle Daten wenn wir auf Dateiliste warten
                 if (this.expectingFileList) {
                     this.terminalBuffer += text;
@@ -549,14 +556,54 @@ for i in range(10):
                 if (!this.isConnected) return;
                 
                 this.addToTerminal('\n🛑 Stoppe Ausführung...\n');
+                
+                // Setze Flag für direkte Ausgabe
+                this.isStopCommand = true;
+                
+                // Reset alle wartenden Operationen
+                this.expectingFileList = false;
+                this.expectingFileContent = null;
+                this.terminalBuffer = '';
+                if (this.fileListTimeout) {
+                    clearTimeout(this.fileListTimeout);
+                    this.fileListTimeout = null;
+                }
+                
+                // Sende mehrere Stopp-Signale
                 await this.sendRawCommand('\x03'); // Ctrl+C
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await this.sendRawCommand('\x03'); // Nochmal Ctrl+C
+                
+                // Reset Flag nach kurzer Zeit
+                setTimeout(() => {
+                    this.isStopCommand = false;
+                }, 2000);
             }
 
             async softReset() {
                 if (!this.isConnected) return;
                 
                 this.addToTerminal('\n🔄 Soft Reset...\n');
+                
+                // Setze Flag für direkte Ausgabe
+                this.isStopCommand = true;
+                
+                // Reset alle wartenden Operationen
+                this.expectingFileList = false;
+                this.expectingFileContent = null;
+                this.terminalBuffer = '';
+                if (this.fileListTimeout) {
+                    clearTimeout(this.fileListTimeout);
+                    this.fileListTimeout = null;
+                }
+                
+                // Sende Reset-Signal
                 await this.sendRawCommand('\x04'); // Ctrl+D
+                
+                // Reset Flag nach kurzer Zeit
+                setTimeout(() => {
+                    this.isStopCommand = false;
+                }, 3000);
             }
 
             showUploadModal() {
@@ -601,6 +648,7 @@ print('Datei ${filename} gespeichert')
                 // Reset state
                 this.terminalBuffer = '';
                 this.expectingFileList = true;
+                this.isStopCommand = false; // Kein Stopp-Befehl
                 
                 // Timeout für den Fall dass etwas schief geht
                 this.fileListTimeout = setTimeout(() => {
@@ -750,6 +798,7 @@ except Exception as e:
                 // Reset state
                 this.terminalBuffer = '';
                 this.expectingFileContent = filename;
+                this.isStopCommand = false; // Kein Stopp-Befehl
                 
                 // Stoppe zuerst laufende Programme
                 await this.sendRawCommand('\x03');
