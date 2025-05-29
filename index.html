@@ -437,14 +437,31 @@
             async runCode() {
                 if (!this.isConnected) return;
                 
-                const code = this.editor.getValue();
-                this.addToTerminal('\n=== Code wird ausgeführt ===\n');
+                if (!this.currentFile) {
+                    this.addToTerminal('\n❌ Bitte erst eine Datei hochladen\n');
+                    return;
+                }
                 
-                // Paste-Modus für mehrzeiligen Code
-                await this.sendRawCommand('\x05'); // Ctrl+E (paste mode)
+                this.addToTerminal(`\n=== Führe ${this.currentFile} aus ===\n`);
+                
+                // Datei ausführen mit importlib
+                const runCode = `
+try:
+    import uos, importlib
+    if '${this.currentFile}' in uos.listdir():
+        module = importlib.import_module('${this.currentFile.replace('.py', '')}')
+        if hasattr(module, 'main'):
+            module.main()
+    else:
+        print('Datei nicht gefunden')
+except Exception as e:
+    print('Fehler:', e)
+`;
+                
+                await this.sendRawCommand('\x05'); // Paste mode
                 await new Promise(resolve => setTimeout(resolve, 100));
-                await this.sendRawCommand(code);
-                await this.sendRawCommand('\x04'); // Ctrl+D (execute)
+                await this.sendRawCommand(runCode);
+                await this.sendRawCommand('\x04'); // Execute
             }
 
             async stopExecution() {
@@ -470,8 +487,13 @@
             async uploadFile() {
                 const filename = document.getElementById('filenameInput').value;
                 if (!filename) return;
+                if (!filename.endsWith('.py')) {
+                    this.addToTerminal('\n❌ Dateiname muss mit .py enden\n');
+                    return;
+                }
                 
                 const code = this.editor.getValue();
+                this.currentFile = filename;
                 const chunkSize = 200; // Noch kleinere Chunk-Größe
                 const totalChunks = Math.ceil(code.length / chunkSize);
                 
