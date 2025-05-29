@@ -283,6 +283,8 @@
             <div class="prompt-panel">
                 <input type="text" id="llmPromptInput" placeholder="Prompt für DeepSeek eingeben...">
                 <button class="btn" id="sendToLlmBtn">An DeepSeek senden</button>
+                <button class="btn" id="acceptLlmChangesBtn" style="display: none; margin-left: 10px;">Änderungen übernehmen</button>
+                <button class="btn danger" id="rejectLlmChangesBtn" style="display: none; margin-left: 10px;">Ablehnen</button>
             </div>
         </div>
 
@@ -324,6 +326,10 @@
                 this.editor = editor;
                 this.files = {'main.py': this.editor.getValue()};
                 this.deepSeekApiKey = localStorage.getItem('deepSeekApiKey') || '';
+                this.diffEditor = null;
+                this.diffEditorContainerDiv = null;
+                this.originalEditorDiv = document.getElementById('editor');
+                this.editorContainerDiv = document.getElementById('editor-container');
                 
                 this.initializeEventListeners();
                 this.checkWebSerialSupport();
@@ -368,6 +374,8 @@
                 });
 
                 document.getElementById('sendToLlmBtn').addEventListener('click', () => this.callDeepSeekApi());
+                document.getElementById('acceptLlmChangesBtn').addEventListener('click', () => this.acceptLLMChanges());
+                document.getElementById('rejectLlmChangesBtn').addEventListener('click', () => this.rejectLLMChanges());
 
                 this.initializeResizer();
             }
@@ -434,7 +442,7 @@
 
             async callDeepSeekApi() {
                 const prompt = document.getElementById('llmPromptInput').value;
-                const currentCode = this.editor.getValue();
+                const originalCode = this.editor.getValue(); // Originalcode speichern
 
                 if (!this.deepSeekApiKey) {
                     this.addToTerminal('\n❌ Bitte zuerst einen DeepSeek API Key eingeben.\n');
@@ -511,10 +519,10 @@
                         // Entferne mögliche einleitende/abschließende Leerzeilen, die vom LLM kommen könnten
                         newCode = newCode.trim();
 
-                        this.editor.setValue(newCode);
-                        this.files[this.currentFile] = newCode; 
-                        this.addToTerminal('\n✅ Code vom LLM erhalten und im Editor eingefügt.\n');
-                        document.getElementById('llmPromptInput').value = ''; 
+                        // Diff-Ansicht anzeigen, anstatt den Editor direkt zu aktualisieren
+                        this.showDiff(originalCode, newCode);
+                        this.addToTerminal('\n✅ Code vom LLM erhalten. Bitte überprüfen Sie die Änderungen.\n');
+                        // document.getElementById('llmPromptInput').value = ''; // Wird jetzt in hideDiffAndRestoreEditor gemacht
                     } else {
                         console.warn('DeepSeek API: Keine gültigen Kandidaten in der Antwort gefunden.', data);
                         this.addToTerminal('\n⚠️ DeepSeek hat keinen Code oder eine unerwartete Antwortstruktur zurückgegeben.\n');
