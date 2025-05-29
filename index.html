@@ -344,6 +344,7 @@ for i in range(10):
                 this.terminalBuffer = ''; // Puffer für Terminal-Text
                 this.expectingFileList = false;
                 this.expectingFileContent = null;
+                this.fileListTimeout = null;
                 
                 this.initializeEventListeners();
                 this.checkWebSerialSupport();
@@ -406,13 +407,15 @@ for i in range(10):
                     
                     this.addToTerminal('✅ Erfolgreich verbunden!\n');
                     
-                    // REPL starten
-                    await this.sendRawCommand('\x03\x03\x02'); // Ctrl+C, Ctrl+C, Ctrl+B
+                    // Stoppe laufende Programme und starte REPL
+                    await this.sendRawCommand('\x03\x03'); // Doppeltes Ctrl+C um sicher zu stoppen
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await this.sendRawCommand('\x02'); // Ctrl+B für normalen REPL
                     
                     this.startReading();
                     
-                    // Automatisch Dateien laden
-                    setTimeout(() => this.listFiles(), 1000);
+                    // Automatisch Dateien laden nach kurzer Verzögerung
+                    setTimeout(() => this.listFiles(), 1500);
                     
                 } catch (error) {
                     this.addToTerminal(`❌ Verbindungsfehler: ${error.message}\n`);
@@ -421,6 +424,11 @@ for i in range(10):
 
             async disconnect() {
                 try {
+                    if (this.fileListTimeout) {
+                        clearTimeout(this.fileListTimeout);
+                        this.fileListTimeout = null;
+                    }
+                    
                     if (this.reader) {
                         await this.reader.cancel();
                         this.reader.releaseLock();
@@ -448,13 +456,59 @@ for i in range(10):
                         if (done) break;
                         
                         const text = new TextDecoder().decode(value);
-                        this.addToTerminal(text);
+                        this.processTerminalData(text);
                     }
                 } catch (error) {
                     if (this.isConnected) {
                         this.addToTerminal(`❌ Lesefehler: ${error.message}\n`);
                     }
                 }
+            }
+
+            processTerminalData(text) {
+                // Sammle alle Daten wenn wir auf Dateiliste warten
+                if (this.expectingFileList) {
+                    this.terminalBuffer += text;
+                    
+                    // Prüfe ob wir die komplette Dateiliste haben
+                    if (this.parseFileList(this.terminalBuffer)) {
+                        this.expectingFileList = false;
+                        this.terminalBuffer = '';
+                        if (this.fileListTimeout) {
+                            clearTimeout(this.fileListTimeout);
+                            this.fileListTimeout = null;
+                        }
+                        return;
+                    }
+                    
+                    // Zeige nur normale Terminal-Ausgaben an (ohne unsere Marker)
+                    const cleanText = text.replace(/__FILES_START__|__FILES_END__/g, '');
+                    if (cleanText.trim()) {
+                        this.addToTerminalDirect(cleanText);
+                    }
+                    return;
+                }
+                
+                // Sammle alle Daten wenn wir auf Dateiinhalt warten
+                if (this.expectingFileContent) {
+                    this.terminalBuffer += text;
+                    
+                    if (this.parseFileContent(this.terminalBuffer, this.expectingFileContent)) {
+                        this.expectingFileContent = null;
+                        this.terminalBuffer = '';
+                        return;
+                    }
+                    
+                    // Zeige nur normale Terminal-Ausgaben an
+                    const cleanText = text.replace(/__FILE_CONTENT_START__|__FILE_CONTENT_END__/g, '');
+                    if (cleanText.trim()) {
+                        this.addToTerminalDirect(cleanText);
+                    }
+                    return;
+                }
+                
+                // Normale Terminal-Ausgabe
+                this.addToTerminalDirect(text);
             }
 
             async sendRawCommand(command) {
@@ -481,6 +535,10 @@ for i in range(10):
                 
                 const code = document.getElementById('editor').value;
                 this.addToTerminal('\n=== Code wird ausgeführt ===\n');
+                
+                // Stoppe zuerst laufende Programme
+                await this.sendRawCommand('\x03');
+                await new Promise(resolve => setTimeout(resolve, 200));
                 
                 // Paste-Modus für mehrzeiligen Code
                 await this.sendRawCommand('\x05'); // Ctrl+E (paste mode)
@@ -517,6 +575,10 @@ for i in range(10):
                 
                 this.addToTerminal(`\n📤 Lade ${filename} hoch...\n`);
                 
+                // Stoppe zuerst laufende Programme
+                await this.sendRawCommand('\x03');
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
                 // Datei erstellen/überschreiben
                 const uploadCode = `
 with open('${filename}', 'w') as f:
@@ -536,42 +598,58 @@ print('Datei ${filename} gespeichert')
             async listFiles() {
                 if (!this.isConnected) return;
                 
-                this.addToTerminalDirect('\n📁 Dateien werden aufgelistet...\n');
+                this.addToTerminal('\n📁 Dateien werden aufgelistet...\n');
                 
-                // Puffer und Status zurücksetzen
+                // Reset state
                 this.terminalBuffer = '';
                 this.expectingFileList = true;
                 
-                // Versteckter Modus - sammle Dateien ohne Terminal-Ausgabe
+                // Timeout für den Fall dass etwas schief geht
+                this.fileListTimeout = setTimeout(() => {
+                    if (this.expectingFileList) {
+                        this.expectingFileList = false;
+                        this.addToTerminal('❌ Timeout beim Laden der Dateiliste\n');
+                        this.terminalBuffer = '';
+                    }
+                }, 10000); // 10 Sekunden Timeout
+                
+                // Stoppe zuerst laufende Programme
+                await this.sendRawCommand('\x03');
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
                 const listCode = `
 import os
-import json
-files = []
-for file in os.listdir():
-    try:
-        stat = os.stat(file)
-        size = stat[6]
-        is_dir = stat[0] & 0x4000
-        files.append({
-            'name': file,
-            'size': size,
-            'is_dir': bool(is_dir)
-        })
-    except:
-        files.append({
-            'name': file,
-            'size': 0,
-            'is_dir': True
-        })
-print('__FILES_START__')
-print(json.dumps(files))
-print('__FILES_END__')
+try:
+    files = []
+    for file in os.listdir():
+        try:
+            stat = os.stat(file)
+            size = stat[6]
+            is_dir = stat[0] & 0x4000
+            files.append({
+                'name': file,
+                'size': size,
+                'is_dir': bool(is_dir)
+            })
+        except:
+            files.append({
+                'name': file,
+                'size': 0,
+                'is_dir': False
+            })
+    
+    print('__FILES_START__')
+    import json
+    print(json.dumps(files))
+    print('__FILES_END__')
+except Exception as e:
+    print('Fehler beim Auflisten der Dateien:', e)
 `;
                 
-                await this.sendRawCommand('\x05');
+                await this.sendRawCommand('\x05'); // Paste mode
                 await new Promise(resolve => setTimeout(resolve, 100));
                 await this.sendRawCommand(listCode);
-                await this.sendRawCommand('\x04');
+                await this.sendRawCommand('\x04'); // Execute
             }
 
             parseFileList(text) {
@@ -586,16 +664,21 @@ print('__FILES_END__')
                     const jsonData = text.substring(jsonStart, endIndex).trim();
                     
                     try {
-                        const files = JSON.parse(jsonData);
+                        // Entferne mögliche zusätzliche Zeichen und Zeilenumbrüche
+                        const cleanJsonData = jsonData.replace(/^\s*\n|\n\s*$/g, '').trim();
+                        const files = JSON.parse(cleanJsonData);
+                        
                         this.espFiles = files;
                         this.updateFileList();
                         this.addToTerminal(`✅ ${files.length} Dateien gefunden\n`);
+                        return true;
+                        
                     } catch (error) {
+                        console.error('JSON Parse Error:', error);
+                        console.error('JSON Data:', jsonData);
                         this.addToTerminal(`❌ Fehler beim Parsen der Dateiliste: ${error.message}\n`);
+                        return true; // Auch bei Fehler als "verarbeitet" markieren
                     }
-                    
-                    this.expectingFileList = false;
-                    return true;
                 }
                 return false;
             }
@@ -664,11 +747,15 @@ print('__FILES_END__')
             async downloadFile(filename) {
                 if (!this.isConnected) return;
                 
-                this.addToTerminalDirect(`\n📥 Lade ${filename}...\n`);
+                this.addToTerminal(`\n📥 Lade ${filename}...\n`);
                 
-                // Puffer und Status zurücksetzen
+                // Reset state
                 this.terminalBuffer = '';
                 this.expectingFileContent = filename;
+                
+                // Stoppe zuerst laufende Programme
+                await this.sendRawCommand('\x03');
+                await new Promise(resolve => setTimeout(resolve, 300));
                 
                 const downloadCode = `
 try:
@@ -705,13 +792,12 @@ except Exception as e:
                         // Datei im Editor öffnen
                         this.switchToFile(filename, content);
                         this.addToTerminal(`✅ ${filename} geladen (${content.length} Zeichen)\n`);
+                        return true;
                         
                     } catch (error) {
                         this.addToTerminal(`❌ Fehler beim Parsen des Dateiinhalts: ${error.message}\n`);
+                        return true; // Auch bei Fehler als "verarbeitet" markieren
                     }
-                    
-                    this.expectingFileContent = null;
-                    return true;
                 }
                 return false;
             }
@@ -758,6 +844,10 @@ except Exception as e:
                 
                 this.addToTerminal(`\n🗑️ Lösche ${filename}...\n`);
                 
+                // Stoppe zuerst laufende Programme
+                await this.sendRawCommand('\x03');
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
                 const deleteCode = `
 try:
     import os
@@ -776,33 +866,6 @@ except Exception as e:
             }
 
             addToTerminal(text) {
-                // Parse spezielle Marker für Dateien
-                if (this.expectingFileList) {
-                    if (this.parseFileList(text)) {
-                        // Wenn erfolgreich geparst, restlichen gepufferten Text anzeigen
-                        if (this.terminalBuffer.length > 0) {
-                            this.addToTerminalDirect(this.terminalBuffer);
-                            this.terminalBuffer = '';
-                        }
-                        return;
-                    }
-                    // Wenn noch nicht vollständig, nicht im Terminal anzeigen
-                    return;
-                }
-                
-                if (this.expectingFileContent) {
-                    if (this.parseFileContent(text, this.expectingFileContent)) {
-                        // Wenn erfolgreich geparst, restlichen gepufferten Text anzeigen
-                        if (this.terminalBuffer.length > 0) {
-                            this.addToTerminalDirect(this.terminalBuffer);
-                            this.terminalBuffer = '';
-                        }
-                        return;
-                    }
-                    // Wenn noch nicht vollständig, nicht im Terminal anzeigen
-                    return;
-                }
-                
                 this.addToTerminalDirect(text);
             }
 
