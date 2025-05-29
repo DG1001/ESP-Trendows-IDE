@@ -1,53 +1,59 @@
 # MicroPython Web IDE
 
-Eine einfache webbasierte IDE zur Interaktion mit MicroPython-Geräten (wie ESP32) über die Web Serial API.
+A simple web-based IDE for interacting with MicroPython devices (like ESP32) via the Web Serial API.
 
-![Screenshoot](screen.png)
+![Screenshot](screen.png)
 
-## Funktionen
+## Features
 
-*   **Verbinden/Trennen**: Stellt eine serielle Verbindung zum MicroPython-Gerät her.
-*   **Code-Editor**: Monaco-Editor für die Bearbeitung von Python-Dateien.
-*   **REPL-Terminal**: Direkte Interaktion mit der MicroPython REPL.
-*   **Datei-Management**:
-    *   Dateien auf dem Gerät auflisten.
-    *   Dateien vom Editor auf das Gerät hochladen.
-    *   Dateien vom Gerät in den Editor laden.
-    *   Kontextmenü für Dateien (Rechtsklick) zum Löschen und Umbenennen.
-*   **Code-Ausführung**: Ausführen der aktuell im Editor geladenen Datei auf dem Gerät.
-*   **Steuerung**:
-    *   Laufende Skripte stoppen (Ctrl+C).
+*   **Connect/Disconnect**: Establishes a serial connection to the MicroPython device.
+*   **Code Editor**: Monaco editor for editing Python files.
+*   **REPL Terminal**: Direct interaction with the MicroPython REPL.
+*   **File Management**:
+    *   List files on the device.
+    *   Upload files from the editor to the device (supports `.py` and `.txt`).
+    *   Load files from the device into the editor.
+    *   Context menu for files (right-click) to delete and rename.
+    *   "New" button to clear the editor and start a new file.
+*   **Code Execution**: Execute the currently loaded file in the editor on the device.
+*   **Control**:
+    *   Stop running scripts (Ctrl+C).
     *   Soft Reset (Ctrl+D).
-*   **Benutzeroberfläche**:
-    *   Tabs für geöffnete Dateien (derzeit nur eine Datei gleichzeitig aktiv im Editor).
-    *   Fortschrittsanzeige beim Hochladen von Dateien.
-    *   Terminalausgabe löschen.
-    *   Verschiebbarer Trenner zwischen Code-Editor und REPL-Terminal.
-*   **LLM-Integration (DeepSeek)**:
-    *   Eingabefeld für DeepSeek API-Schlüssel (wird im Local Storage des Browsers gespeichert und maskiert angezeigt).
-    *   Prompt-Eingabe zur Code-Generierung oder -Anpassung.
-    *   System-Prompt zur Generierung von MicroPython-Code für Mikrocontroller.
-    *   **Diff-Ansicht**: Zeigt Änderungen des LLMs im Vergleich zum aktuellen Code an.
-    *   Möglichkeit, LLM-Änderungen zu übernehmen oder abzulehnen.
-    *   Anzeige der Token-Nutzung (Prompt, Completion, Total) und geschätzter Kosten für jede LLM-Anfrage sowie eine Gesamtsumme für die Sitzung.
+*   **User Interface**:
+    *   Tabs for open files (currently only one file active in the editor at a time).
+    *   Progress bar for file uploads.
+    *   Clear terminal output.
+    *   Resizable splitter between the code editor and REPL terminal.
+*   **LLM Integration (DeepSeek)**:
+    *   Input field for DeepSeek API key (stored in browser's Local Storage and masked).
+    *   Prompt input for code generation or modification.
+    *   System prompt to generate MicroPython code for microcontrollers.
+    *   Automatic loading of `hardware.txt` (if present as a file on the device) to provide hardware context to the LLM.
+    *   **Diff View**: Displays LLM changes compared to the current code.
+    *   Ability to accept or reject LLM changes.
+    *   Display of token usage (Prompt, Completion, Total) and estimated cost for each LLM request, as well as a total session cost.
 
-## Verwendung
+## Usage
 
-1.  Öffnen Sie die `index.html` Datei in einem Webbrowser, der die Web Serial API unterstützt (z.B. Google Chrome, Microsoft Edge).
-2.  Klicken Sie auf "Mit ESP32 verbinden" und wählen Sie den seriellen Port Ihres Geräts.
-3.  Nutzen Sie die Buttons in der Toolbar, um mit dem Gerät zu interagieren, Dateien zu bearbeiten und Code auszuführen.
-4.  **Für die LLM-Funktion**:
-    *   Geben Sie Ihren DeepSeek API-Schlüssel in das dafür vorgesehene Feld in der Toolbar ein. Die Token-Nutzung und geschätzte Kosten werden daneben angezeigt.
-    *   Geben Sie einen Prompt in das Feld unter dem Editor ein und klicken Sie auf "An DeepSeek senden".
-    *   Überprüfen Sie die vom LLM vorgeschlagenen Änderungen in der Diff-Ansicht.
-    *   Klicken Sie auf "Änderungen übernehmen" oder "Ablehnen".
+1.  Open the `index.html` file in a web browser that supports the Web Serial API (e.g., Google Chrome, Microsoft Edge).
+2.  Click "Connect to ESP32" and select the serial port of your device.
+3.  Use the buttons in the toolbar to interact with the device, edit files, and execute code.
+4.  **For the LLM function**:
+    *   Enter your DeepSeek API key in the designated field in the toolbar. Token usage and estimated costs will be displayed next to it.
+    *   Enter a prompt in the field below the editor and click "Send to DeepSeek".
+    *   Review the changes suggested by the LLM in the diff view.
+    *   Click "Accept Changes" or "Reject".
+5.  **For Hardware Context with LLM**:
+    *   Ensure a file named `hardware.txt` exists in the root directory of your MicroPython device.
+    *   This file should contain text descriptions of your hardware setup (e.g., "LED connected to GPIO 2", "Sensor on I2C pins X and Y").
+    *   The IDE will automatically load this file's content when files are listed and include it in requests to the LLM.
 
-## Voraussetzungen
+## Prerequisites
 
-*   Ein MicroPython-fähiges Gerät (z.B. ESP32).
-*   Ein Webbrowser, der die Web Serial API unterstützt.
-*   USB-Treiber für das Gerät, falls erforderlich.
+*   A MicroPython-enabled device (e.g., ESP32).
+*   A web browser that supports the Web Serial API.
+*   USB drivers for the device, if required.
 
-## Hinweis
+## Note
 
-Dieses Projekt ist eine einfache Demonstration und dient als Grundlage. Es können Fehler auftreten und es fehlen fortgeschrittene Funktionen einer vollwertigen IDE.
+This project is a simple demonstration and serves as a foundation. Errors may occur, and it lacks advanced features of a full-fledged IDE. The project is now structured with separate HTML, CSS (`style.css`), and JavaScript (`script.js`) files.
