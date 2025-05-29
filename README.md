@@ -13,6 +13,7 @@ Eine einfache webbasierte IDE zur Interaktion mit MicroPython-Geräten (wie ESP3
     *   Dateien auf dem Gerät auflisten.
     *   Dateien vom Editor auf das Gerät hochladen.
     *   Dateien vom Gerät in den Editor laden.
+    *   Kontextmenü für Dateien (Rechtsklick) zum Löschen und Umbenennen.
 *   **Code-Ausführung**: Ausführen der aktuell im Editor geladenen Datei auf dem Gerät.
 *   **Steuerung**:
     *   Laufende Skripte stoppen (Ctrl+C).

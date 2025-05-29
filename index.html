@@ -423,9 +423,6 @@
                                 case 'rename':
                                     this.promptRenameFile(this.contextMenuTargetFile);
                                     break;
-                                case 'clone':
-                                    this.promptCloneFile(this.contextMenuTargetFile);
-                                    break;
                             }
                         }
                         contextMenu.style.display = 'none';
@@ -768,35 +765,6 @@ except Exception as e:
                         this.currentFile = newFilename;
                         this.updateActiveTab(newFilename);
                     }
-                }
-            }
-            
-            generateCloneName(originalFilename) {
-                const dotIndex = originalFilename.lastIndexOf('.');
-                const base = dotIndex === -1 ? originalFilename : originalFilename.substring(0, dotIndex);
-                const ext = dotIndex === -1 ? '' : originalFilename.substring(dotIndex);
-                let cloneNum = 1;
-                let newName;
-                do {
-                    newName = `${base}-${cloneNum}${ext}`;
-                    cloneNum++;
-                } while (this.deviceFiles.includes(newName));
-                return newName;
-            }
-
-            promptCloneFile(filename) {
-                const newFilename = this.generateCloneName(filename);
-                if (confirm(`Möchten Sie '${filename}' nach '${newFilename}' kopieren?`)) {
-                    const copyCommand = `
-s_f = open('${filename}', 'r')
-s_c = s_f.read()
-s_f.close()
-d_f = open('${newFilename}', 'w')
-d_f.write(s_c)
-d_f.close()
-del s_f, s_c, d_f
-`;
-                    this._executeDeviceCommand(copyCommand, `Datei '${filename}' nach '${newFilename}' kopiert.`);
                 }
             }
 
@@ -1277,7 +1245,6 @@ print('===FILELIST_END===')
     <div id="fileContextMenu" class="context-menu" style="display: none; position: absolute; background-color: #3c3c3c; border: 1px solid #555; padding: 5px 0; z-index: 1001; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
         <div class="context-menu-item" data-action="rename">Umbenennen</div>
         <div class="context-menu-item" data-action="delete">Löschen</div>
-        <div class="context-menu-item" data-action="clone">Kopieren (Klonen)</div>
     </div>
 </body>
 </html>
