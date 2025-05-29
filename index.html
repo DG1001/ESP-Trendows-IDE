@@ -281,7 +281,7 @@
             </div>
             <div id="fileList">
                 <div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">
-                    Verbinde mit ESP32 um Dateien zu sehen
+                    Verbinde mit ESP32 und klicke "Dateien auflisten"
                 </div>
             </div>
         </div>
@@ -406,6 +406,7 @@ for i in range(10):
                     this.updateUI();
                     
                     this.addToTerminal('✅ Erfolgreich verbunden!\n');
+                    this.addToTerminal('💡 Klicke "Dateien auflisten" um ESP32-Dateien zu sehen\n');
                     
                     // Stoppe laufende Programme und starte REPL
                     await this.sendRawCommand('\x03\x03'); // Doppeltes Ctrl+C um sicher zu stoppen
@@ -413,9 +414,6 @@ for i in range(10):
                     await this.sendRawCommand('\x02'); // Ctrl+B für normalen REPL
                     
                     this.startReading();
-                    
-                    // Automatisch Dateien laden nach kurzer Verzögerung
-                    setTimeout(() => this.listFiles(), 1500);
                     
                 } catch (error) {
                     this.addToTerminal(`❌ Verbindungsfehler: ${error.message}\n`);
@@ -592,7 +590,7 @@ print('Datei ${filename} gespeichert')
                 await this.sendRawCommand('\x04'); // Execute
                 
                 closeModal();
-                setTimeout(() => this.listFiles(), 1000);
+                this.addToTerminal('💡 Klicke "Dateien auflisten" um die aktualisierte Liste zu sehen\n');
             }
 
             async listFiles() {
@@ -862,7 +860,7 @@ except Exception as e:
                 await this.sendRawCommand(deleteCode);
                 await this.sendRawCommand('\x04');
                 
-                setTimeout(() => this.listFiles(), 1000);
+                this.addToTerminal('💡 Klicke "Dateien auflisten" um die aktualisierte Liste zu sehen\n');
             }
 
             addToTerminal(text) {
@@ -899,7 +897,7 @@ except Exception as e:
                     terminalInput.disabled = true;
                     
                     // File list leeren
-                    document.getElementById('fileList').innerHTML = '<div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">Verbinde mit ESP32 um Dateien zu sehen</div>';
+                    document.getElementById('fileList').innerHTML = '<div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">Verbinde mit ESP32 und klicke "Dateien auflisten"</div>';
                 }
             }
         }
