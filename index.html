@@ -444,13 +444,26 @@
                 
                 this.addToTerminal(`\n=== Führe ${this.currentFile} aus ===\n`);
                 
-                // Einfach den Dateinamen senden, um die Datei auszuführen
-                await this.sendRawCommand('\r\n'); // Neue Zeile
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Code ausführen mittels Paste-Modus und exec
+                await this.sendRawCommand('\r\n'); // Sicherstellen, dass die REPL-Zeile frei ist
+                await new Promise(resolve => setTimeout(resolve, 50));
+
+                const pythonScript = `try:
+    with open('${this.currentFile}', 'r') as f:
+        exec(f.read())
+    print('\\n✅ Ausführung abgeschlossen')
+except Exception as e:
+    print('\\n❌ Fehler:', e)
+\r\n`;
+
+                await this.sendRawCommand('\x05'); // Ctrl-E: Paste-Modus starten
+                await new Promise(resolve => setTimeout(resolve, 100)); // Kurze Pause
                 
-                // Direktes Ausführen ohne Paste-Modus
-                const moduleName = this.currentFile.replace('.py', '');
-                await this.sendRawCommand(`import ${moduleName}\r\n`);
+                await this.sendRawCommand(pythonScript);
+                // Keine zusätzliche Pause hier, da der gesamte Block auf einmal gesendet wird
+                
+                await this.sendRawCommand('\x04'); // Ctrl-D: Paste-Modus beenden und ausführen
+                await new Promise(resolve => setTimeout(resolve, 100)); // Kurze Pause danach
             }
 
             async stopExecution() {
