@@ -1136,7 +1136,7 @@ except Exception as e:
                 // Datei im Editor anzeigen
                 this.currentFile = filename;
                 this.updateActiveTab(filename); // Tab aktualisieren
-                this.editor.setValue(''); // Inhalt wird durch Lesevorgang gefüllt
+                // this.editor.setValue(''); // Entfernt: Inhalt wird durch Lesevorgang in startReading() gefüllt
             }
 
             parseFileContent(text) {
