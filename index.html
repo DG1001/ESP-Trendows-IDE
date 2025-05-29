@@ -263,7 +263,14 @@
         <button class="btn" id="uploadBtn" disabled>Hochladen</button>
         <button class="btn" id="listFilesBtn" disabled>Dateien auflisten</button>
         <button class="btn danger" id="softResetBtn" disabled>Soft Reset</button>
-        <input type="password" id="deepSeekApiKeyInput" placeholder="DeepSeek API Key" style="margin-left: 10px; padding: 8px; background: #1e1e1e; border: 1px solid #3e3e42; color: #d4d4d4; border-radius: 4px; font-size: 12px; min-width: 200px;">
+        <input type="password" id="deepSeekApiKeyInput" placeholder="DeepSeek API Key" style="margin-left: 10px; padding: 8px; background: #1e1e1e; border: 1px solid #3e3e42; color: #d4d4d4; border-radius: 4px; font-size: 12px; min-width: 150px;">
+        <div id="llmUsageStats" style="margin-left: 10px; font-size: 10px; display: flex; gap: 8px; align-items: center;">
+            <span>P: <span id="promptTokens">0</span></span>
+            <span>C: <span id="completionTokens">0</span></span>
+            <span>T: <span id="totalTokens">0</span></span>
+            <span>Cost: <span id="lastCost">0.00</span>µ</span>
+            <span>Total: <span id="totalSessionCost">0.00</span>µ</span>
+        </div>
         <div class="status disconnected" id="status">Nicht verbunden</div>
     </div>
 
@@ -330,6 +337,7 @@
                 this.diffEditorContainerDiv = null;
                 this.originalEditorDiv = document.getElementById('editor');
                 this.editorContainerDiv = document.getElementById('editor-container');
+                this.totalSessionCostUnits = 0; // Für die Kostensummierung
                 
                 this.initializeEventListeners();
                 this.checkWebSerialSupport();
@@ -494,6 +502,38 @@
 
                     const data = await response.json();
                     console.log('DeepSeek API Success Response:', data);
+
+                    // Nutzungsdaten und Kosten aktualisieren
+                    if (data.usage) {
+                        const usage = data.usage;
+                        const promptTokens = usage.prompt_tokens || 0;
+                        const completionTokens = usage.completion_tokens || 0;
+                        const totalTokens = usage.total_tokens || 0;
+
+                        // Preise für deepseek-chat (angenommen, bitte verifizieren):
+                        // Input: 1 RMB / 1M tokens => 0.000001 RMB / token
+                        // Output: 2 RMB / 1M tokens => 0.000002 RMB / token
+                        // Wir verwenden "Mikro-Einheiten" (µ) zur Darstellung, wobei 1µ ~ 1 RMB / 1M Input Tokens
+                        const costPerMillionInputTokens = 1; 
+                        const costPerMillionOutputTokens = 2;
+
+                        const currentCost = (promptTokens / 1000000) * costPerMillionInputTokens + 
+                                          (completionTokens / 1000000) * costPerMillionOutputTokens;
+                        
+                        this.totalSessionCostUnits += currentCost;
+
+                        document.getElementById('promptTokens').textContent = promptTokens;
+                        document.getElementById('completionTokens').textContent = completionTokens;
+                        document.getElementById('totalTokens').textContent = totalTokens;
+                        document.getElementById('lastCost').textContent = currentCost.toFixed(6); // Zeigt z.B. 0.000123 an
+                        document.getElementById('totalSessionCost').textContent = this.totalSessionCostUnits.toFixed(6);
+                    } else {
+                        // Reset, falls keine Nutzungsdaten vorhanden sind
+                        document.getElementById('promptTokens').textContent = 'N/A';
+                        document.getElementById('completionTokens').textContent = 'N/A';
+                        document.getElementById('totalTokens').textContent = 'N/A';
+                        document.getElementById('lastCost').textContent = 'N/A';
+                    }
 
                     if (data.choices && data.choices.length > 0 && data.choices[0].message && data.choices[0].message.content) {
                         let llmOutput = data.choices[0].message.content;
