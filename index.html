@@ -483,7 +483,7 @@ for i in range(10):
                 if (!filename) return;
                 
                 const code = document.getElementById('editor').value;
-                const chunkSize = 100; // Noch kleinere Chunk-Größe
+                const chunkSize = 200; // Noch kleinere Chunk-Größe
                 const totalChunks = Math.ceil(code.length / chunkSize);
                 
                 this.addToTerminal(`\n📤 Lade ${filename} hoch (${code.length} Zeichen, ${totalChunks} Teile)...\n`);
