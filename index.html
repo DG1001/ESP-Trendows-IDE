@@ -535,6 +535,8 @@
                     // max_tokens: 2048, // Kann bei Bedarf angepasst werden
                 };
 
+                console.log('DeepSeek API Request Body:', requestBody);
+
                 try {
                     const response = await fetch(API_URL, {
                         method: 'POST',
