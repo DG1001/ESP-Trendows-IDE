@@ -2,6 +2,8 @@
 
 Eine einfache webbasierte IDE zur Interaktion mit MicroPython-Geräten (wie ESP32) über die Web Serial API.
 
+![Screenshoot](screen.png)
+
 ## Funktionen
 
 *   **Verbinden/Trennen**: Stellt eine serielle Verbindung zum MicroPython-Gerät her.
