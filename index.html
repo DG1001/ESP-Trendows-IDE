@@ -469,7 +469,7 @@
                     model: "deepseek-chat",
                     messages: [
                         { role: "system", content: systemPrompt },
-                        { role: "user", content: `${prompt}\n\nAktueller Code im Editor (falls vorhanden, ansonsten generiere neuen Code):\n\`\`\`python\n${currentCode}\n\`\`\`` }
+                        { role: "user", content: `${prompt}\n\nAktueller Code im Editor (falls vorhanden, ansonsten generiere neuen Code):\n\`\`\`python\n${originalCode}\n\`\`\`` }
                     ],
                     temperature: 0.7,
                     // max_tokens: 2048, // Kann bei Bedarf angepasst werden
