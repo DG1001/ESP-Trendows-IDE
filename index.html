@@ -391,12 +391,23 @@ for i in range(10):
 
             async startReading() {
                 try {
+                    let buffer = '';
                     while (this.isConnected) {
                         const { value, done } = await this.reader.read();
                         if (done) break;
                         
                         const text = new TextDecoder().decode(value);
                         this.addToTerminal(text);
+                        
+                        // Check for file list output
+                        buffer += text;
+                        if (buffer.includes('===FILELIST_END===')) {
+                            const files = this.parseFileList(buffer);
+                            if (files) {
+                                this.updateFileBrowser(files);
+                            }
+                            buffer = '';
+                        }
                     }
                 } catch (error) {
                     if (this.isConnected) {
@@ -481,6 +492,27 @@ print('Datei ${filename} gespeichert')
                 setTimeout(() => this.listFiles(), 1000);
             }
 
+            async loadFile(filename) {
+                if (!this.isConnected) return;
+                
+                this.addToTerminal(`\n📥 Lade ${filename}...\n`);
+                
+                const loadCode = `
+try:
+    with open('${filename}', 'r') as f:
+        print('===FILE_CONTENT_START===')
+        print(f.read())
+        print('===FILE_CONTENT_END===')
+except Exception as e:
+    print('Fehler:', e)
+`;
+                
+                await this.sendRawCommand('\x05');
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await this.sendRawCommand(loadCode);
+                await this.sendRawCommand('\x04');
+            }
+
             async listFiles() {
                 if (!this.isConnected) return;
                 
@@ -488,21 +520,55 @@ print('Datei ${filename} gespeichert')
                 
                 const listCode = `
 import os
-print('=== Dateien auf ESP32 ===')
+print('===FILELIST_START===')
 for file in os.listdir():
     try:
         stat = os.stat(file)
         size = stat[6]
-        print(f'{file:<20} {size:>8} bytes')
+        print(f'{file}|{size}')
     except:
-        print(f'{file:<20} (Ordner)')
-print('========================')
+        print(f'{file}|folder')
+print('===FILELIST_END===')
 `;
                 
                 await this.sendRawCommand('\x05');
                 await new Promise(resolve => setTimeout(resolve, 100));
                 await this.sendRawCommand(listCode);
                 await this.sendRawCommand('\x04');
+            }
+
+            parseFileList(text) {
+                const startMarker = '===FILELIST_START===';
+                const endMarker = '===FILELIST_END===';
+                
+                const start = text.indexOf(startMarker);
+                const end = text.indexOf(endMarker);
+                
+                if (start === -1 || end === -1) return null;
+                
+                const fileListText = text.substring(start + startMarker.length, end).trim();
+                const lines = fileListText.split('\n');
+                
+                const files = [];
+                for (const line of lines) {
+                    const [name, size] = line.split('|');
+                    files.push({name, size});
+                }
+                
+                return files;
+            }
+
+            updateFileBrowser(files) {
+                const fileListElement = document.getElementById('fileList');
+                fileListElement.innerHTML = '';
+                
+                files.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.textContent = `${file.name} (${file.size === 'folder' ? 'Ordner' : file.size + ' bytes'})`;
+                    fileItem.addEventListener('click', () => this.loadFile(file.name));
+                    fileListElement.appendChild(fileItem);
+                });
             }
 
             addToTerminal(text) {
