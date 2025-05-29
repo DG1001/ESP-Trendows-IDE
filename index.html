@@ -910,18 +910,37 @@ except Exception as e:
                         }
 
                         // Check for hardware.txt content
-                        if (buffer.includes('===HARDWARE_CONTEXT_END===')) {
-                            if (this.isLoadingHardwareContext) {
-                                const contextContent = this.parseHardwareContext(buffer);
-                                if (contextContent !== null) {
-                                    this.hardwareContext = contextContent;
-                                    this.addToTerminal('\n✅ Hardware-Kontext (hardware.txt) geladen.\n');
-                                } else {
-                                    this.addToTerminal('\n⚠️ Hardware-Kontext (hardware.txt) konnte nicht vollständig gelesen werden.\n');
+                        // Ensure we only try to parse if we are expecting it AND the end marker is present
+                        if (this.isLoadingHardwareContext && buffer.includes('===HARDWARE_CONTEXT_END===')) {
+                            const hardwareContextResult = this.parseHardwareContext(buffer);
+                            if (hardwareContextResult) { // parseHardwareContext now returns an object or null
+                                this.hardwareContext = hardwareContextResult.content; // Use .content
+                                if (hardwareContextResult.status === 'success') {
+                                    if (hardwareContextResult.content) {
+                                        this.addToTerminal('\n✅ Hardware context (hardware.txt) loaded.\n');
+                                    } else {
+                                        // This case might occur if hardware.txt is empty but read successfully
+                                        this.addToTerminal('\nℹ️ Hardware context (hardware.txt) is empty.\n');
+                                    }
                                 }
+                                // Error messages (like "Error reading hardware.txt") are handled by parseHardwareContext itself
+                                this.isLoadingHardwareContext = false; 
+                                buffer = buffer.substring(hardwareContextResult.processedLength); // Consume processed part
+                            } else if (buffer.includes('===HARDWARE_CONTEXT_START===') && buffer.includes('===HARDWARE_CONTEXT_END===')) {
+                                // If parseHardwareContext returned null but markers were present, it implies an issue not caught by specific error strings.
+                                // Or, if it was an incomplete message that got fully buffered now.
+                                // For safety, if markers are present but parsing failed in an unexpected way, reset loading state and clear buffer.
+                                this.addToTerminal('\n⚠️ Hardware context (hardware.txt) could not be fully parsed, though markers were present.\n');
                                 this.isLoadingHardwareContext = false;
+                                // Attempt to find the end marker to clear up to that point.
+                                const endMarkerIndex = buffer.indexOf('===HARDWARE_CONTEXT_END===');
+                                if (endMarkerIndex !== -1) {
+                                    buffer = buffer.substring(endMarkerIndex + '===HARDWARE_CONTEXT_END==='.length);
+                                } else {
+                                    buffer = ''; // Fallback: clear buffer if end marker somehow not found after includes check
+                                }
                             }
-                            buffer = ''; // Buffer immer leeren
+                            // If only partial hardware context message in buffer, loop will continue and buffer will grow.
                         }
                     }
                 } catch (error) {
@@ -1156,16 +1175,18 @@ except Exception as e:
                 return content;
             }
 
-            parseHardwareContext(text) {
+            parseHardwareContext(buffer) { // Changed parameter name from text to buffer
                 const startMarker = '===HARDWARE_CONTEXT_START===';
                 const endMarker = '===HARDWARE_CONTEXT_END===';
                 
-                const start = text.indexOf(startMarker);
-                const end = text.indexOf(endMarker);
+                const startIndex = buffer.indexOf(startMarker); // Use startIndex for clarity
+                if (startIndex === -1) return null; 
+
+                const endIndexMarker = buffer.indexOf(endMarker, startIndex + startMarker.length);
+                if (endIndexMarker === -1) return null; 
                 
-                if (start === -1 || end === -1) return null; // Nicht vollständig
-                
-                let content = text.substring(start + startMarker.length, end);
+                const processedLength = endIndexMarker + endMarker.length; // Define processedLength
+                let content = buffer.substring(startIndex + startMarker.length, endIndexMarker);
                 content = content.replace(/\r\n/g, '\n').trim();
                 
                 if (content.startsWith("Error reading hardware.txt:")) {
