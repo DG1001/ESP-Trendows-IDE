@@ -409,10 +409,8 @@ for i in range(10):
                     this.addToTerminal('✅ Erfolgreich verbunden!\n');
                     this.addToTerminal('💡 Klicke "Dateien auflisten" um ESP32-Dateien zu sehen\n');
                     
-                    // Stoppe laufende Programme und starte REPL
-                    await this.sendRawCommand('\x03\x03'); // Doppeltes Ctrl+C um sicher zu stoppen
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    await this.sendRawCommand('\x02'); // Ctrl+B für normalen REPL
+                    // Aggressive Stopp-Sequenz beim Verbinden
+                    await this.forceStop();
                     
                     this.startReading();
                     
@@ -459,7 +457,7 @@ for i in range(10):
                     }
                 } catch (error) {
                     if (this.isConnected) {
-                        this.addToTerminal(`❌ Lesefehler: ${error.message}\n`);
+                        this.addToTerminal(`❌ Les efehler: ${error.message}\n`);
                     }
                 }
             }
@@ -523,6 +521,22 @@ for i in range(10):
                 await this.writer.write(encoder.encode(command));
             }
 
+            async forceStop() {
+                // Aggressive Stopp-Sequenz
+                const stopSequence = [
+                    '\x03',  // Ctrl+C
+                    '\x03',  // Nochmal Ctrl+C
+                    '\x03',  // Und nochmal
+                    '\x02',  // Ctrl+B (Normal REPL)
+                    '\r\n',  // Enter
+                ];
+                
+                for (const cmd of stopSequence) {
+                    await this.sendRawCommand(cmd);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+
             async sendCommand() {
                 const input = document.getElementById('terminalInput');
                 const command = input.value;
@@ -541,9 +555,9 @@ for i in range(10):
                 const code = document.getElementById('editor').value;
                 this.addToTerminal('\n=== Code wird ausgeführt ===\n');
                 
-                // Stoppe zuerst laufende Programme
-                await this.sendRawCommand('\x03');
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Aggressive Stopp vor Ausführung
+                await this.forceStop();
+                await new Promise(resolve => setTimeout(resolve, 300));
                 
                 // Paste-Modus für mehrzeiligen Code
                 await this.sendRawCommand('\x05'); // Ctrl+E (paste mode)
@@ -569,10 +583,24 @@ for i in range(10):
                     this.fileListTimeout = null;
                 }
                 
-                // Sende mehrere Stopp-Signale
-                await this.sendRawCommand('\x03'); // Ctrl+C
-                await new Promise(resolve => setTimeout(resolve, 100));
-                await this.sendRawCommand('\x03'); // Nochmal Ctrl+C
+                // Sehr aggressive Stopp-Sequenz
+                const stopCommands = [
+                    '\x03',  // Ctrl+C
+                    '\x03',  // Nochmal
+                    '\x03',  // Und nochmal
+                    '\x18',  // Ctrl+X (alternative)
+                    '\x1a',  // Ctrl+Z (suspend)
+                    '\x03',  // Nochmal Ctrl+C
+                ];
+                
+                for (const cmd of stopCommands) {
+                    await this.sendRawCommand(cmd);
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+                
+                // Zurück zum normalen REPL
+                await new Promise(resolve => setTimeout(resolve, 200));
+                await this.sendRawCommand('\x02'); // Ctrl+B
                 
                 // Reset Flag nach kurzer Zeit
                 setTimeout(() => {
@@ -597,7 +625,12 @@ for i in range(10):
                     this.fileListTimeout = null;
                 }
                 
-                // Sende Reset-Signal
+                // Stoppe zuerst alles
+                await this.sendRawCommand('\x03'); // Ctrl+C
+                await this.sendRawCommand('\x03'); // Nochmal
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // Dann Soft Reset
                 await this.sendRawCommand('\x04'); // Ctrl+D
                 
                 // Reset Flag nach kurzer Zeit
@@ -620,9 +653,9 @@ for i in range(10):
                 
                 this.addToTerminal(`\n📤 Lade ${filename} hoch...\n`);
                 
-                // Stoppe zuerst laufende Programme
-                await this.sendRawCommand('\x03');
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Aggressive Stopp vor Upload
+                await this.forceStop();
+                await new Promise(resolve => setTimeout(resolve, 300));
                 
                 // Datei erstellen/überschreiben
                 const uploadCode = `
@@ -659,9 +692,9 @@ print('Datei ${filename} gespeichert')
                     }
                 }, 10000); // 10 Sekunden Timeout
                 
-                // Stoppe zuerst laufende Programme
-                await this.sendRawCommand('\x03');
-                await new Promise(resolve => setTimeout(resolve, 300));
+                // Aggressive Stopp vor Dateiliste
+                await this.forceStop();
+                await new Promise(resolve => setTimeout(resolve, 400));
                 
                 const listCode = `
 import os
@@ -800,9 +833,9 @@ except Exception as e:
                 this.expectingFileContent = filename;
                 this.isStopCommand = false; // Kein Stopp-Befehl
                 
-                // Stoppe zuerst laufende Programme
-                await this.sendRawCommand('\x03');
-                await new Promise(resolve => setTimeout(resolve, 300));
+                // Aggressive Stopp vor Download
+                await this.forceStop();
+                await new Promise(resolve => setTimeout(resolve, 400));
                 
                 const downloadCode = `
 try:
@@ -833,7 +866,7 @@ except Exception as e:
                     const reprContent = text.substring(contentStart, endIndex).trim();
                     
                     try {
-                        // Python repr() rückgängig machen
+                        // Python repr()  rückgängig machen
                         const content = eval(reprContent);
                         
                         // Datei im Editor öffnen
@@ -891,9 +924,9 @@ except Exception as e:
                 
                 this.addToTerminal(`\n🗑️ Lösche ${filename}...\n`);
                 
-                // Stoppe zuerst laufende Programme
-                await this.sendRawCommand('\x03');
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Aggressive Stopp vor Delete
+                await this.forceStop();
+                await new Promise(resolve => setTimeout(resolve, 300));
                 
                 const deleteCode = `
 try:
