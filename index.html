@@ -253,6 +253,16 @@
             font-size: 12px;
             margin-right: 10px;
         }
+
+        .context-menu-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #d4d4d4;
+        }
+        .context-menu-item:hover {
+            background-color: #0e639c;
+        }
     </style>
 </head>
 <body>
@@ -339,6 +349,8 @@
                 this.originalEditorDiv = document.getElementById('editor');
                 this.editorContainerDiv = document.getElementById('editor-container');
                 this.totalSessionCostUnits = 0; // Für die Kostensummierung
+                this.contextMenuTargetFile = null;
+                this.deviceFiles = []; // Zum Speichern der aktuellen Dateiliste vom Gerät
                 
                 this.initializeEventListeners();
                 this.checkWebSerialSupport();
@@ -388,6 +400,38 @@
                 document.getElementById('rejectLlmChangesBtn').addEventListener('click', () => this.rejectLLMChanges());
 
                 this.initializeResizer();
+                this.initializeContextMenuListeners();
+            }
+
+            initializeContextMenuListeners() {
+                const contextMenu = document.getElementById('fileContextMenu');
+                document.addEventListener('click', (e) => { // Globaler Klick zum Schließen
+                    if (!contextMenu.contains(e.target)) {
+                        contextMenu.style.display = 'none';
+                        this.contextMenuTargetFile = null;
+                    }
+                });
+
+                contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        const action = e.target.dataset.action;
+                        if (this.contextMenuTargetFile) {
+                            switch (action) {
+                                case 'delete':
+                                    this.promptDeleteFile(this.contextMenuTargetFile);
+                                    break;
+                                case 'rename':
+                                    this.promptRenameFile(this.contextMenuTargetFile);
+                                    break;
+                                case 'clone':
+                                    this.promptCloneFile(this.contextMenuTargetFile);
+                                    break;
+                            }
+                        }
+                        contextMenu.style.display = 'none';
+                        this.contextMenuTargetFile = null;
+                    });
+                });
             }
 
             initializeResizer() {
@@ -679,6 +723,81 @@
                 // Upload-Button aktivieren, wenn verbunden, da jetzt eine (leere) Datei zum Speichern vorhanden ist
                 document.getElementById('uploadBtn').disabled = !this.isConnected;
                 this.addToTerminal(`\n✨ Neue Datei '${this.currentFile}' im Editor erstellt.\n`);
+            }
+
+            async _executeDeviceCommand(command, successMessage, errorMessagePrefix) {
+                if (!this.isConnected) return;
+                this.addToTerminal(`\n⚙️ Führe aus: ${command.splitlines ? command.splitlines()[0] : command}\n`); // Zeige nur die erste Zeile bei mehrzeiligen Befehlen
+                
+                const script = `
+try:
+    import os
+    ${command}
+    print("===CMD_SUCCESS===")
+except Exception as e:
+    print(f"===CMD_ERROR===:{e}")
+`;
+                await this.sendRawCommand('\x05'); // Paste-Modus starten
+                await new Promise(resolve => setTimeout(resolve, 50));
+                await this.sendRawCommand(script.replace(/\n/g, '\r') + '\r');
+                await this.sendRawCommand('\x04'); // Paste-Modus beenden und ausführen
+                await new Promise(resolve => setTimeout(resolve, 200)); // Warte auf Ausführung
+
+                // Hier könnte man auf ===CMD_SUCCESS=== oder ===CMD_ERROR=== in der Terminalausgabe lauschen,
+                // aber für den Moment verlassen wir uns auf die Terminalausgabe und aktualisieren die Dateiliste.
+                // Eine robustere Lösung würde eine Callback-Mechanik oder Promises verwenden, die auf die Marker warten.
+                if (successMessage) this.addToTerminal(`\n✅ ${successMessage}\n`);
+                this.listFiles(); // Dateiliste immer aktualisieren
+            }
+
+            promptDeleteFile(filename) {
+                if (confirm(`Möchten Sie die Datei '${filename}' wirklich löschen?`)) {
+                    this._executeDeviceCommand(`os.remove('${filename}')`, `Datei '${filename}' gelöscht.`);
+                }
+            }
+
+            promptRenameFile(oldFilename) {
+                const newFilename = prompt(`Neuen Namen für '${oldFilename}' eingeben:`, oldFilename);
+                if (newFilename && newFilename !== oldFilename) {
+                    if (!newFilename.endsWith('.py') && !newFilename.endsWith('.txt')) {
+                         alert('Dateiname muss mit .py oder .txt enden.');
+                         return;
+                    }
+                    this._executeDeviceCommand(`os.rename('${oldFilename}', '${newFilename}')`, `Datei '${oldFilename}' umbenannt in '${newFilename}'.`);
+                    if (this.currentFile === oldFilename) {
+                        this.currentFile = newFilename;
+                        this.updateActiveTab(newFilename);
+                    }
+                }
+            }
+            
+            generateCloneName(originalFilename) {
+                const dotIndex = originalFilename.lastIndexOf('.');
+                const base = dotIndex === -1 ? originalFilename : originalFilename.substring(0, dotIndex);
+                const ext = dotIndex === -1 ? '' : originalFilename.substring(dotIndex);
+                let cloneNum = 1;
+                let newName;
+                do {
+                    newName = `${base}-${cloneNum}${ext}`;
+                    cloneNum++;
+                } while (this.deviceFiles.includes(newName));
+                return newName;
+            }
+
+            promptCloneFile(filename) {
+                const newFilename = this.generateCloneName(filename);
+                if (confirm(`Möchten Sie '${filename}' nach '${newFilename}' kopieren?`)) {
+                    const copyCommand = `
+s_f = open('${filename}', 'r')
+s_c = s_f.read()
+s_f.close()
+d_f = open('${newFilename}', 'w')
+d_f.write(s_c)
+d_f.close()
+del s_f, s_c, d_f
+`;
+                    this._executeDeviceCommand(copyCommand, `Datei '${filename}' nach '${newFilename}' kopiert.`);
+                }
             }
 
             async toggleConnection() {
@@ -1029,14 +1148,28 @@ print('===FILELIST_END===')
             }
 
             updateFileBrowser(files) {
+                this.deviceFiles = files.map(f => f.name); // Aktuelle Dateinamen speichern
                 const fileListElement = document.getElementById('fileList');
+                const contextMenu = document.getElementById('fileContextMenu');
                 fileListElement.innerHTML = '';
                 
                 files.forEach(file => {
                     const fileItem = document.createElement('div');
                     fileItem.className = 'file-item';
                     fileItem.textContent = `${file.name} (${file.size === 'folder' ? 'Ordner' : file.size + ' bytes'})`;
-                    fileItem.addEventListener('click', () => this.loadFile(file.name));
+                    
+                    fileItem.addEventListener('click', () => {
+                        contextMenu.style.display = 'none'; // Kontextmenü ausblenden, falls offen
+                        this.loadFile(file.name);
+                    });
+
+                    fileItem.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        this.contextMenuTargetFile = file.name;
+                        contextMenu.style.left = `${e.clientX}px`;
+                        contextMenu.style.top = `${e.clientY}px`;
+                        contextMenu.style.display = 'block';
+                    });
                     fileListElement.appendChild(fileItem);
                 });
             }
@@ -1140,5 +1273,11 @@ print('===FILELIST_END===')
             window.addEventListener('load', initEditor);
         }
     </script>
+
+    <div id="fileContextMenu" class="context-menu" style="display: none; position: absolute; background-color: #3c3c3c; border: 1px solid #555; padding: 5px 0; z-index: 1001; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+        <div class="context-menu-item" data-action="rename">Umbenennen</div>
+        <div class="context-menu-item" data-action="delete">Löschen</div>
+        <div class="context-menu-item" data-action="clone">Kopieren (Klonen)</div>
+    </div>
 </body>
 </html>
