@@ -533,13 +533,13 @@ except Exception as e:
             if (this.port) {
                 await this.port.close();
             }
-            
-            this.isConnected = false;
-            this.updateUI();
             this.addToTerminal('🔌 Disconnected.\n');
             
         } catch (error) {
             this.addToTerminal(`❌ Error disconnecting: ${error.message}\n`);
+        } finally {
+            this.isConnected = false;
+            this.updateUI();
         }
     }
 
