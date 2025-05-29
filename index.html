@@ -1232,13 +1232,18 @@ print('===FILELIST_END===')
             updateFileBrowser(files) {
                 this.deviceFiles = files.map(f => f.name); // Aktuelle Dateinamen speichern
                 
-                // Prüfen, ob hardware.txt vorhanden ist und ggf. laden/aktualisieren
-                if (this.deviceFiles.includes('hardware.txt')) {
+                // Prüfen, ob hardware.txt vorhanden ist und eine Datei ist, dann laden/aktualisieren
+                const hardwareTxtEntry = files.find(f => f.name === 'hardware.txt');
+                if (hardwareTxtEntry && hardwareTxtEntry.size !== 'folder') {
                     this.fetchHardwareContextFile();
                 } else {
-                    if (this.hardwareContext) { // Wenn hardware.txt nicht mehr da ist, Kontext löschen
+                    if (this.hardwareContext) { // hardware.txt nicht (als Datei) gefunden, Kontext löschen
                         this.hardwareContext = '';
-                        this.addToTerminal('\nℹ️ Hardware-Kontext (hardware.txt) entfernt, da Datei nicht mehr vorhanden.\n');
+                        if (hardwareTxtEntry && hardwareTxtEntry.size === 'folder') {
+                            this.addToTerminal('\nℹ️ Hardware-Kontext (hardware.txt) ist ein Ordner und wird nicht geladen.\n');
+                        } else {
+                            this.addToTerminal('\nℹ️ Hardware-Kontext (hardware.txt) nicht als Datei gefunden oder entfernt.\n');
+                        }
                     }
                 }
 
