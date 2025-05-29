@@ -876,14 +876,31 @@ except Exception as e:
                             buffer = '';
                         }
                         
-                        // Check for file content output
+                        // Check for file content output for editor
                         if (buffer.includes('===FILE_CONTENT_END===')) {
-                            const content = this.parseFileContent(buffer);
-                            if (content) {
-                                this.editor.setValue(content);
-                                this.files[this.currentFile] = content;
+                            if (!this.isLoadingHardwareContext) { // Nur verarbeiten, wenn nicht Hardware-Kontext geladen wird
+                                const content = this.parseFileContent(buffer);
+                                if (content) {
+                                    this.editor.setValue(content);
+                                    this.files[this.currentFile] = content;
+                                }
                             }
-                            buffer = '';
+                            buffer = ''; // Buffer immer leeren, wenn End-Marker gefunden
+                        }
+
+                        // Check for hardware.txt content
+                        if (buffer.includes('===HARDWARE_CONTEXT_END===')) {
+                            if (this.isLoadingHardwareContext) {
+                                const contextContent = this.parseHardwareContext(buffer);
+                                if (contextContent !== null) {
+                                    this.hardwareContext = contextContent;
+                                    this.addToTerminal('\n✅ Hardware-Kontext (hardware.txt) geladen.\n');
+                                } else {
+                                    this.addToTerminal('\n⚠️ Hardware-Kontext (hardware.txt) konnte nicht vollständig gelesen werden.\n');
+                                }
+                                this.isLoadingHardwareContext = false;
+                            }
+                            buffer = ''; // Buffer immer leeren
                         }
                     }
                 } catch (error) {
