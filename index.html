@@ -737,6 +737,12 @@
                 this.isLoadingHardwareContext = true;
                 this.hardwareContext = ''; // Alten Kontext löschen
 
+                this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (vor Hardware-Kontext-Laden)...\n');
+                await this.sendRawCommand('\x03'); // Ctrl+C
+                await new Promise(resolve => setTimeout(resolve, 50));
+                await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                await new Promise(resolve => setTimeout(resolve, 50));
+
                 const loadHardwareCode = `
 try:
     with open('hardware.txt', 'r') as f_hw:
@@ -752,11 +758,20 @@ except Exception as e_hw:
                 await new Promise(resolve => setTimeout(resolve, 50));
                 await this.sendRawCommand(loadHardwareCode.replace(/\n/g, '\r') + '\r');
                 await this.sendRawCommand('\x04'); // Ausführen
+                await new Promise(resolve => setTimeout(resolve, 50)); // Kurze Pause
+                await this.sendRawCommand('\r'); // REPL-Zeile säubern
                 // Das Ergebnis wird in startReading() verarbeitet
             }
 
             async _executeDeviceCommand(command, successMessage, errorMessagePrefix) {
                 if (!this.isConnected) return;
+
+                this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (vor Gerätebefehl)...\n');
+                await this.sendRawCommand('\x03'); // Ctrl+C
+                await new Promise(resolve => setTimeout(resolve, 50));
+                await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                await new Promise(resolve => setTimeout(resolve, 50));
+
                 this.addToTerminal(`\n⚙️ Führe aus: ${command.splitlines ? command.splitlines()[0] : command}\n`); // Zeige nur die erste Zeile bei mehrzeiligen Befehlen
                 
                 const script = `
@@ -771,7 +786,9 @@ except Exception as e:
                 await new Promise(resolve => setTimeout(resolve, 50));
                 await this.sendRawCommand(script.replace(/\n/g, '\r') + '\r');
                 await this.sendRawCommand('\x04'); // Paste-Modus beenden und ausführen
-                await new Promise(resolve => setTimeout(resolve, 200)); // Warte auf Ausführung
+                await new Promise(resolve => setTimeout(resolve, 50)); // Kurze Pause
+                await this.sendRawCommand('\r'); // REPL-Zeile säubern
+                await new Promise(resolve => setTimeout(resolve, 150)); // Restliche Wartezeit, falls für Befehlsausführung benötigt
 
                 // Hier könnte man auf ===CMD_SUCCESS=== oder ===CMD_ERROR=== in der Terminalausgabe lauschen,
                 // aber für den Moment verlassen wir uns auf die Terminalausgabe und aktualisieren die Dateiliste.
@@ -824,9 +841,13 @@ except Exception as e:
                     
                     this.addToTerminal('✅ Erfolgreich verbunden!\n');
                     
-                    // REPL starten
-                    await this.sendRawCommand('\x03\x03\x02'); // Ctrl+C, Ctrl+C, Ctrl+B
-                    
+                    // Stoppe evtl. laufende Skripte und stelle sicher, dass die REPL bereit ist
+                    this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (nach Verbindung)...\n');
+                    await this.sendRawCommand('\x03'); // Ctrl+C (Stop)
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                                        
                     this.startReading();
                     
                 } catch (error) {
@@ -938,10 +959,15 @@ except Exception as e:
                 }
                 
                 this.addToTerminal(`\n=== Führe ${this.currentFile} aus ===\n`);
+
+                this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (vor Code-Ausführung)...\n');
+                await this.sendRawCommand('\x03'); // Ctrl+C
+                await new Promise(resolve => setTimeout(resolve, 50));
+                await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                await new Promise(resolve => setTimeout(resolve, 50));
                 
                 // Code ausführen mittels Paste-Modus und exec
-                await this.sendRawCommand('\r\n'); // Sicherstellen, dass die REPL-Zeile frei ist
-                await new Promise(resolve => setTimeout(resolve, 50));
+                // await this.sendRawCommand('\r\n'); // Nicht mehr nötig, da \r oben gesendet wurde
 
                 // Construct the script with \r line endings for paste mode
 
@@ -958,11 +984,13 @@ except SyntaxError as e:
                 await this.sendRawCommand('\x05'); // Ctrl-E: Paste-Modus starten
                 await new Promise(resolve => setTimeout(resolve, 100)); // Kurze Pause
                 
-                await this.sendRawCommand(pythonScript);
+                await this.sendRawCommand(pythonScript); // pythonScript hat bereits \r Endungen
                 // Keine zusätzliche Pause hier, da der gesamte Block auf einmal gesendet wird
                 
                 await this.sendRawCommand('\x04'); // Ctrl-D: Paste-Modus beenden und ausführen
-                await new Promise(resolve => setTimeout(resolve, 100)); // Kurze Pause danach
+                await new Promise(resolve => setTimeout(resolve, 50)); // Kurze Pause danach
+                await this.sendRawCommand('\r'); // REPL-Zeile säubern
+                await new Promise(resolve => setTimeout(resolve, 50)); 
             }
 
             async stopExecution() {
@@ -1079,6 +1107,12 @@ except SyntaxError as e:
 
             async loadFile(filename) {
                 if (!this.isConnected) return;
+
+                this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (vor Datei-Laden)...\n');
+                await this.sendRawCommand('\x03'); // Ctrl+C
+                await new Promise(resolve => setTimeout(resolve, 50));
+                await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                await new Promise(resolve => setTimeout(resolve, 50));
                 
                 this.addToTerminal(`\n📥 Lade ${filename}...\n`);
                 
@@ -1094,8 +1128,10 @@ except Exception as e:
                 
                 await this.sendRawCommand('\x05');
                 await new Promise(resolve => setTimeout(resolve, 100));
-                await this.sendRawCommand(loadCode);
+                await this.sendRawCommand(loadCode.replace(/\n/g, '\r') + '\r'); // Korrektur und korrekte Zeilenenden
                 await this.sendRawCommand('\x04');
+                await new Promise(resolve => setTimeout(resolve, 50)); // Kurze Pause
+                await this.sendRawCommand('\r'); // REPL-Zeile säubern
                 
                 // Datei im Editor anzeigen
                 this.currentFile = filename;
@@ -1142,6 +1178,12 @@ except Exception as e:
 
             async listFiles() {
                 if (!this.isConnected) return;
+
+                this.addToTerminal('🛑 Stoppe evtl. laufende Skripte (vor Dateiliste)...\n');
+                await this.sendRawCommand('\x03'); // Ctrl+C
+                await new Promise(resolve => setTimeout(resolve, 50));
+                await this.sendRawCommand('\r');   // Enter, um die REPL-Zeile zu säubern
+                await new Promise(resolve => setTimeout(resolve, 50));
                 
                 this.addToTerminal('\n📁 Dateien werden aufgelistet...\n');
                 
@@ -1160,8 +1202,10 @@ print('===FILELIST_END===')
                 
                 await this.sendRawCommand('\x05');
                 await new Promise(resolve => setTimeout(resolve, 100));
-                await this.sendRawCommand(listCode);
+                await this.sendRawCommand(listCode.replace(/\n/g, '\r') + '\r'); // Korrekte Zeilenenden für Paste-Modus
                 await this.sendRawCommand('\x04');
+                await new Promise(resolve => setTimeout(resolve, 50)); // Kurze Pause
+                await this.sendRawCommand('\r'); // REPL-Zeile säubern
             }
 
             parseFileList(text) {
