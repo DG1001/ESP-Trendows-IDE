@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MicroPython Web IDE</title>
     <!-- Monaco Editor -->
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs/editor/editor.main.min.css">
+    <script>
+        var require = { paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs' } };
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs/loader.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs/editor/editor.main.nls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs/editor/editor.main.js"></script>
@@ -662,42 +666,63 @@ print('===FILELIST_END===')
         }
 
         // Monaco Editor initialisieren
-        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs' }});
-        
-        require(['vs/editor/editor.main'], function() {
-            const editor = monaco.editor.create(document.getElementById('editor'), {
-                value: [
-                    "# Dein MicroPython Code hier...",
-                    "print('Hello ESP32!')",
-                    "",
-                    "# Beispiel: LED blinken",
-                    "from machine import Pin",
-                    "import time",
-                    "",
-                    "led = Pin(2, Pin.OUT)  # GPIO 2 für eingebaute LED",
-                    "",
-                    "for i in range(10):",
-                    "    led.on()",
-                    "    time.sleep(0.5)",
-                    "    led.off()",
-                    "    time.sleep(0.5)",
-                    "    print(f'Blink {i+1}')"
-                ].join('\n'),
-                language: 'python',
-                theme: 'vs-dark',
-                automaticLayout: true,
-                minimap: { enabled: false },
-                fontSize: 14,
-                lineNumbers: 'on',
-                roundedSelection: true,
-                scrollBeyondLastLine: false,
-                renderWhitespace: 'selection',
-                tabSize: 4
-            });
+        function initEditor() {
+            try {
+                require(['vs/editor/editor.main'], function() {
+                    const editor = monaco.editor.create(document.getElementById('editor'), {
+                        value: [
+                            "# Dein MicroPython Code hier...",
+                            "print('Hello ESP32!')",
+                            "",
+                            "# Beispiel: LED blinken",
+                            "from machine import Pin",
+                            "import time",
+                            "",
+                            "led = Pin(2, Pin.OUT)  # GPIO 2 für eingebaute LED",
+                            "",
+                            "for i in range(10):",
+                            "    led.on()",
+                            "    time.sleep(0.5)",
+                            "    led.off()",
+                            "    time.sleep(0.5)",
+                            "    print(f'Blink {i+1}')"
+                        ].join('\n'),
+                        language: 'python',
+                        theme: 'vs-dark',
+                        automaticLayout: true,
+                        minimap: { enabled: false },
+                        fontSize: 14,
+                        lineNumbers: 'on',
+                        roundedSelection: true,
+                        scrollBeyondLastLine: false,
+                        renderWhitespace: 'selection',
+                        tabSize: 4
+                    });
 
-            // IDE initialisieren und Editor übergeben
-            const ide = new MicroPythonIDE(editor);
-        });
+                    // IDE initialisieren und Editor übergeben
+                    window.ide = new MicroPythonIDE(editor);
+                });
+            } catch (error) {
+                console.error('Editor Initialization Error:', error);
+                // Fallback falls Monaco nicht lädt
+                const editorElement = document.getElementById('editor');
+                editorElement.innerHTML = '<textarea style="width:100%;height:100%;background:#1e1e1e;color:#d4d4d4;border:none;padding:10px;font-family:monospace;font-size:14px;" id="fallbackEditor"># Dein MicroPython Code hier...\nprint(\'Hello ESP32!\')</textarea>';
+                window.ide = new MicroPythonIDE({
+                    getValue: () => document.getElementById('fallbackEditor').value,
+                    setValue: (content) => document.getElementById('fallbackEditor').value = content,
+                    onDidChangeModelContent: (callback) => {
+                        document.getElementById('fallbackEditor').addEventListener('input', callback);
+                    }
+                });
+            }
+        }
+
+        // Editor laden wenn alles fertig ist
+        if (document.readyState === 'complete') {
+            initEditor();
+        } else {
+            window.addEventListener('load', initEditor);
+        }
     </script>
 </body>
 </html>
