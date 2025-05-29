@@ -455,7 +455,12 @@
         exec(f.read())
     print('\\n✅ Ausführung abgeschlossen')
 except Exception as e:
-    print('\\n❌ Fehler:', e)`;
+    # Use import sys inside the script to ensure it's contextually available
+    # when this script snippet is executed.
+    _sys_module_ = __import__('sys')
+    print('\\n❌ Fehler beim Ausführen von ${this.currentFile}:')
+    _sys_module_.print_exception(e)
+`;
                 // Replace all \n with \r, and add a final \r to terminate the last line.
                 const pythonScript = pythonScriptSource.replace(/\n/g, '\r') + '\r';
 
@@ -712,7 +717,7 @@ print('===FILELIST_END===')
                             "    time.sleep(0.5)",
                             "    led.off()",
                             "    time.sleep(0.5)",
-                            "    print(f'Blink {i+1}')"
+                            "    print('Blink ' + str(i + 1))  # f-string removed for wider compatibility"
                         ].join('\n'),
                         language: 'python',
                         theme: 'vs-dark',
