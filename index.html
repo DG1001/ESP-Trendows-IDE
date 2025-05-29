@@ -1184,9 +1184,11 @@ except Exception as e:
                 const startMarker = '===HARDWARE_CONTEXT_START===';
                 const endMarker = '===HARDWARE_CONTEXT_END===';
                 
-                const startIndex = buffer.indexOf(startMarker); // Use startIndex for clarity
-                if (startIndex === -1) return null; 
+                // Find the LAST occurrence of the start marker to skip over echoes.
+                const startIndex = buffer.lastIndexOf(startMarker); 
+                if (startIndex === -1) return null; // Start marker not found at all
 
+                // Now search for the end marker *after* this last start marker.
                 const endIndexMarker = buffer.indexOf(endMarker, startIndex + startMarker.length);
                 if (endIndexMarker === -1) return null; 
                 
