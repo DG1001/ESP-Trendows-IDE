@@ -351,6 +351,8 @@
                 this.totalSessionCostUnits = 0; // Für die Kostensummierung
                 this.contextMenuTargetFile = null;
                 this.deviceFiles = []; // Zum Speichern der aktuellen Dateiliste vom Gerät
+                this.hardwareContext = ''; // Für den Inhalt von hardware.txt
+                this.isLoadingHardwareContext = false; // Flag für das Laden von hardware.txt
                 
                 this.initializeEventListeners();
                 this.checkWebSerialSupport();
@@ -515,12 +517,19 @@
 
                 const API_URL = `https://api.deepseek.com/chat/completions`;
                 const systemPrompt = "You are a helpful assistant that generates MicroPython code for microcontrollers. Ensure the code is valid MicroPython and directly usable on devices like ESP32. Only output the Python code, without any surrounding text or explanations unless explicitly asked.";
+                
+                let userPromptContent = `${prompt}\n\nAktueller Code im Editor (falls vorhanden, ansonsten generiere neuen Code):\n\`\`\`python\n${originalCode}\n\`\`\``;
+
+                if (this.hardwareContext) {
+                    userPromptContent = `Beachte die folgende Hardware-Konfiguration:\n<hardware_info>\n${this.hardwareContext}\n</hardware_info>\n\n${userPromptContent}`;
+                    this.addToTerminal('\nℹ️ Hardware-Kontext wird an LLM gesendet.\n');
+                }
 
                 const requestBody = {
                     model: "deepseek-chat",
                     messages: [
                         { role: "system", content: systemPrompt },
-                        { role: "user", content: `${prompt}\n\nAktueller Code im Editor (falls vorhanden, ansonsten generiere neuen Code):\n\`\`\`python\n${originalCode}\n\`\`\`` }
+                        { role: "user", content: userPromptContent }
                     ],
                     temperature: 0.7,
                     // max_tokens: 2048, // Kann bei Bedarf angepasst werden
@@ -720,6 +729,30 @@
                 // Upload-Button aktivieren, wenn verbunden, da jetzt eine (leere) Datei zum Speichern vorhanden ist
                 document.getElementById('uploadBtn').disabled = !this.isConnected;
                 this.addToTerminal(`\n✨ Neue Datei '${this.currentFile}' im Editor erstellt.\n`);
+            }
+
+            async fetchHardwareContextFile() {
+                if (!this.isConnected) return;
+                this.addToTerminal('\nℹ️ Versuche Hardware-Kontext (hardware.txt) zu laden...\n');
+                this.isLoadingHardwareContext = true;
+                this.hardwareContext = ''; // Alten Kontext löschen
+
+                const loadHardwareCode = `
+try:
+    with open('hardware.txt', 'r') as f_hw:
+        print('===HARDWARE_CONTEXT_START===')
+        print(f_hw.read())
+        print('===HARDWARE_CONTEXT_END===')
+except Exception as e_hw:
+    print('===HARDWARE_CONTEXT_START===') # Sende Marker, damit isLoadingHardwareContext zurückgesetzt wird
+    print(f"Fehler beim Lesen von hardware.txt: {e_hw}")
+    print('===HARDWARE_CONTEXT_END===')
+`;
+                await this.sendRawCommand('\x05'); // Paste-Modus
+                await new Promise(resolve => setTimeout(resolve, 50));
+                await this.sendRawCommand(loadHardwareCode.replace(/\n/g, '\r') + '\r');
+                await this.sendRawCommand('\x04'); // Ausführen
+                // Das Ergebnis wird in startReading() verarbeitet
             }
 
             async _executeDeviceCommand(command, successMessage, errorMessagePrefix) {
@@ -1070,6 +1103,26 @@ except Exception as e:
                 return content;
             }
 
+            parseHardwareContext(text) {
+                const startMarker = '===HARDWARE_CONTEXT_START===';
+                const endMarker = '===HARDWARE_CONTEXT_END===';
+                
+                const start = text.indexOf(startMarker);
+                const end = text.indexOf(endMarker);
+                
+                if (start === -1 || end === -1) return null; // Nicht vollständig
+                
+                let content = text.substring(start + startMarker.length, end);
+                content = content.replace(/\r\n/g, '\n').trim(); // Normalisieren und trimmen
+                
+                // Prüfen, ob ein Fehler beim Lesen gemeldet wurde
+                if (content.startsWith("Fehler beim Lesen von hardware.txt:")) {
+                    this.addToTerminal(`\n⚠️ ${content}\n`); // Fehler im Terminal anzeigen
+                    return ''; // Leeren Kontext zurückgeben, da Datei nicht lesbar war
+                }
+                return content;
+            }
+
             async listFiles() {
                 if (!this.isConnected) return;
                 
@@ -1117,6 +1170,17 @@ print('===FILELIST_END===')
 
             updateFileBrowser(files) {
                 this.deviceFiles = files.map(f => f.name); // Aktuelle Dateinamen speichern
+                
+                // Prüfen, ob hardware.txt vorhanden ist und ggf. laden/aktualisieren
+                if (this.deviceFiles.includes('hardware.txt')) {
+                    this.fetchHardwareContextFile();
+                } else {
+                    if (this.hardwareContext) { // Wenn hardware.txt nicht mehr da ist, Kontext löschen
+                        this.hardwareContext = '';
+                        this.addToTerminal('\nℹ️ Hardware-Kontext (hardware.txt) entfernt, da Datei nicht mehr vorhanden.\n');
+                    }
+                }
+
                 const fileListElement = document.getElementById('fileList');
                 const contextMenu = document.getElementById('fileContextMenu');
                 fileListElement.innerHTML = '';
