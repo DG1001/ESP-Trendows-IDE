@@ -537,6 +537,8 @@ except Exception as e:
                 if (start === -1 || end === -1) return null;
                 
                 let content = text.substring(start + startMarker.length, end);
+                // Normalisiere Zeilenenden (CRLF -> LF)
+                content = content.replace(/\r\n/g, '\n');
                 // Entferne überflüssige Leerzeilen am Anfang und Ende
                 content = content.replace(/^\n+|\n+$/g, '');
                 return content;
