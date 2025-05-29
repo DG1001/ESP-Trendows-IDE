@@ -444,12 +444,12 @@
                 
                 this.addToTerminal(`\n=== Führe ${this.currentFile} aus ===\n`);
                 
-                // Datei ausführen mit importlib
+                // Datei ausführen mit __import__
                 const runCode = `
 try:
-    import uos, importlib
+    import uos
     if '${this.currentFile}' in uos.listdir():
-        module = importlib.import_module('${this.currentFile.replace('.py', '')}')
+        module = __import__('${this.currentFile.replace('.py', '')}')
         if hasattr(module, 'main'):
             module.main()
     else:
