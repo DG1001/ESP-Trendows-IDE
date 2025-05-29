@@ -448,13 +448,16 @@
                 await this.sendRawCommand('\r\n'); // Sicherstellen, dass die REPL-Zeile frei ist
                 await new Promise(resolve => setTimeout(resolve, 50));
 
-                const pythonScript = `try:
+                // Construct the script with \r line endings for paste mode
+                // The template literal below will have \n characters for newlines.
+                const pythonScriptSource = `try:
     with open('${this.currentFile}', 'r') as f:
         exec(f.read())
     print('\\n✅ Ausführung abgeschlossen')
 except Exception as e:
-    print('\\n❌ Fehler:', e)
-\r\n`;
+    print('\\n❌ Fehler:', e)`;
+                // Replace all \n with \r, and add a final \r to terminate the last line.
+                const pythonScript = pythonScriptSource.replace(/\n/g, '\r') + '\r';
 
                 await this.sendRawCommand('\x05'); // Ctrl-E: Paste-Modus starten
                 await new Promise(resolve => setTimeout(resolve, 100)); // Kurze Pause
