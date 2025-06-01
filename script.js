@@ -208,6 +208,15 @@ class MicroPythonIDE {
         sendToLlmBtn.disabled = true;
         sendToLlmBtn.innerHTML = '<span class="spinner"></span> Sending...';
 
+        const systemPrompt = "You are a helpful assistant that generates MicroPython code for microcontrollers. Ensure the code is valid MicroPython and directly usable on devices like ESP32. Only output the Python code, without any surrounding text or explanations unless explicitly asked.";
+            
+        let userPromptContent = `${prompt}\n\nCurrent code in editor (if any, otherwise generate new code):\n\`\`\`python\n${originalCode}\n\`\`\``;
+
+        if (this.hardwareContext) {
+            userPromptContent = `Consider the following hardware configuration:\n<hardware_info>\n${this.hardwareContext}\n</hardware_info>\n\n${userPromptContent}`;
+            this.addToTerminal('\nℹ️ Sending hardware context to LLM.\n');
+        }
+
         let API_URL, apiKey, requestBody;
         if (this.model.startsWith('deepseek')) {
             API_URL = `https://api.deepseek.com/chat/completions`;
@@ -265,15 +274,6 @@ class MicroPythonIDE {
         } else {
             this.addToTerminal('\n❌ Unsupported model selected.\n');
             return;
-        }
-
-        const systemPrompt = "You are a helpful assistant that generates MicroPython code for microcontrollers. Ensure the code is valid MicroPython and directly usable on devices like ESP32. Only output the Python code, without any surrounding text or explanations unless explicitly asked.";
-            
-        let userPromptContent = `${prompt}\n\nCurrent code in editor (if any, otherwise generate new code):\n\`\`\`python\n${originalCode}\n\`\`\``;
-
-        if (this.hardwareContext) {
-            userPromptContent = `Consider the following hardware configuration:\n<hardware_info>\n${this.hardwareContext}\n</hardware_info>\n\n${userPromptContent}`;
-            this.addToTerminal('\nℹ️ Sending hardware context to LLM.\n');
         }
 
         console.log('DeepSeek API Request Body:', requestBody);
