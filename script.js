@@ -29,6 +29,7 @@ class MicroPythonIDE {
         document.getElementById('deepSeekApiKeyInput').value = this.deepSeekApiKey;
         document.getElementById('openaiApiKeyInput').value = this.openaiApiKey;
         document.getElementById('modelSelect').value = this.model;
+        this.updateSendToModelButton();
     }
 
     checkWebSerialSupport() {
@@ -76,6 +77,7 @@ class MicroPythonIDE {
             localStorage.setItem('deepSeekApiKey', this.deepSeekApiKey);
             localStorage.setItem('openaiApiKey', this.openaiApiKey);
             document.getElementById('modelConfigModal').style.display = 'none';
+            this.updateSendToModelButton();
         });
 
         document.getElementById('themeToggleBtn').addEventListener('click', () => this.toggleTheme());
@@ -323,7 +325,7 @@ class MicroPythonIDE {
             this.addToTerminal(`\n❌ Error communicating with DeepSeek: ${error.message}\n`);
         } finally {
             sendToLlmBtn.disabled = false;
-            sendToLlmBtn.innerHTML = 'Send to AI';
+            this.updateSendToModelButton();
         }
     }
 
@@ -432,6 +434,13 @@ class MicroPythonIDE {
     toggleTheme() {
         this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
         this.setTheme(this.currentTheme);
+    }
+
+    updateSendToModelButton() {
+        const button = document.getElementById('sendToLlmBtn');
+        if (button) {
+            button.textContent = `Send to ${this.model}`;
+        }
     }
 
     newFile() {
