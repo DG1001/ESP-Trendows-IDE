@@ -18,6 +18,10 @@ class MicroPythonIDE {
         this.hardwareContext = ''; // Für den Inhalt von hardware.txt
         this.isLoadingHardwareContext = false; // Flag für das Laden von hardware.txt
         
+        // Initialize theme
+        this.currentTheme = localStorage.getItem('theme') || 'dark';
+        this.setTheme(this.currentTheme);
+        
         this.initializeEventListeners();
         this.checkWebSerialSupport();
         document.getElementById('deepSeekApiKeyInput').value = this.deepSeekApiKey;
@@ -61,6 +65,8 @@ class MicroPythonIDE {
             localStorage.setItem('deepSeekApiKey', this.deepSeekApiKey);
         });
 
+        document.getElementById('themeToggleBtn').addEventListener('click', () => this.toggleTheme());
+        
         document.getElementById('sendToLlmBtn').addEventListener('click', () => this.callDeepSeekApi());
         document.getElementById('acceptLlmChangesBtn').addEventListener('click', () => this.acceptLLMChanges());
         document.getElementById('rejectLlmChangesBtn').addEventListener('click', () => this.rejectLLMChanges());
@@ -382,6 +388,24 @@ class MicroPythonIDE {
             activeTab.textContent = filename;
             activeTab.dataset.file = filename;
         }
+    }
+
+    setTheme(theme) {
+        document.body.classList.toggle('light-mode', theme === 'light');
+        localStorage.setItem('theme', theme);
+        
+        const themeBtn = document.getElementById('themeToggleBtn');
+        themeBtn.textContent = theme === 'dark' ? '🌙' : '☀️';
+        
+        // Update Monaco editor theme
+        if (window.monaco) {
+            monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs');
+        }
+    }
+    
+    toggleTheme() {
+        this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
+        this.setTheme(this.currentTheme);
     }
 
     newFile() {
