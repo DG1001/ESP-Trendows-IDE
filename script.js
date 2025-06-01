@@ -327,38 +327,50 @@ class MicroPythonIDE {
                 document.getElementById('lastCost').textContent = 'N/A';
             }
 
-            if (data.choices && data.choices.length > 0 && data.choices[0].message && data.choices[0].message.content) {
-                let llmOutput = data.choices[0].message.content;
-                
-                // Versuche, reinen Code aus Markdown-Codeblöcken zu extrahieren
-                const codeBlockMatch = llmOutput.match(/```python\n([\s\S]*?)\n```|```([\s\S]*?)\n```/);
-                let newCode = llmOutput; 
-
-                if (codeBlockMatch) {
-                    newCode = codeBlockMatch[1] || codeBlockMatch[2]; 
-                    const textBefore = llmOutput.substring(0, codeBlockMatch.index).trim();
-                    const textAfter = llmOutput.substring(codeBlockMatch.index + codeBlockMatch[0].length).trim();
-                    if (textBefore) console.log("LLM Info (vor Codeblock):", textBefore);
-                    if (textAfter) console.log("LLM Info (nach Codeblock):", textAfter);
+            let llmOutput;
+            if (this.model === 'ollama') {
+                if (data.message && data.message.content) {
+                    llmOutput = data.message.content;
                 } else {
-                     // Wenn kein expliziter Codeblock, aber die Ausgabe mit "python" beginnt (manchmal bei DeepSeek)
-                     if (llmOutput.toLowerCase().startsWith("python\n")) {
-                         newCode = llmOutput.substring("python\n".length);
-                     }
-                     console.log("LLM Info (kein expliziter Python-Codeblock gefunden, verwende angepasste/gesamte Ausgabe als Code):", llmOutput);
+                    console.warn('Ollama response did not contain message.content:', data);
+                    this.addToTerminal('\n⚠️ Ollama response did not contain message.content.\n');
+                    return;
                 }
-                
-                // Entferne mögliche einleitende/abschließende Leerzeilen, die vom LLM kommen könnten
-                newCode = newCode.trim();
-
-                // Diff-Ansicht anzeigen, anstatt den Editor direkt zu aktualisieren
-                this.showDiff(originalCode, newCode);
-                this.addToTerminal('\n✅ Code received from LLM. Please review the changes.\n');
-                // document.getElementById('llmPromptInput').value = ''; // Now done in hideDiffAndRestoreEditor
             } else {
-                console.warn('DeepSeek API: No valid candidates found in response.', data);
-                this.addToTerminal('\n⚠️ DeepSeek did not return code or had an unexpected response structure.\n');
+                if (data.choices && data.choices.length > 0 && data.choices[0].message && data.choices[0].message.content) {
+                    llmOutput = data.choices[0].message.content;
+                } else {
+                    console.warn('API response did not contain expected content:', data);
+                    this.addToTerminal('\n⚠️ The model did not return code or had an unexpected response structure.\n');
+                    return;
+                }
             }
+            
+            // Versuche, reinen Code aus Markdown-Codeblöcken zu extrahieren
+            const codeBlockMatch = llmOutput.match(/```python\n([\s\S]*?)\n```|```([\s\S]*?)\n```/);
+            let newCode = llmOutput; 
+
+            if (codeBlockMatch) {
+                newCode = codeBlockMatch[1] || codeBlockMatch[2]; 
+                const textBefore = llmOutput.substring(0, codeBlockMatch.index).trim();
+                const textAfter = llmOutput.substring(codeBlockMatch.index + codeBlockMatch[0].length).trim();
+                if (textBefore) console.log("LLM Info (vor Codeblock):", textBefore);
+                if (textAfter) console.log("LLM Info (nach Codeblock):", textAfter);
+            } else {
+                 // Wenn kein expliziter Codeblock, aber die Ausgabe mit "python" beginnt (manchmal bei DeepSeek)
+                 if (llmOutput.toLowerCase().startsWith("python\n")) {
+                     newCode = llmOutput.substring("python\n".length);
+                 }
+                 console.log("LLM Info (kein expliziter Python-Codeblock gefunden, verwende angepasste/gesamte Ausgabe als Code):", llmOutput);
+            }
+            
+            // Entferne mögliche einleitende/abschließende Leerzeilen, die vom LLM kommen könnten
+            newCode = newCode.trim();
+
+            // Diff-Ansicht anzeigen, anstatt den Editor direkt zu aktualisieren
+            this.showDiff(originalCode, newCode);
+            this.addToTerminal('\n✅ Code received from LLM. Please review the changes.\n');
+            // document.getElementById('llmPromptInput').value = ''; // Now done in hideDiffAndRestoreEditor
 
         } catch (error) {
             console.error('Error requesting DeepSeek API:', error);
