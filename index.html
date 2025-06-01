@@ -102,6 +102,7 @@
                     <option value="gpt-4.1">GPT-4.1</option>
                     <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
                     <option value="gpt-4.1-nano">GPT-4.1 Nano</option>
+                    <option value="ollama">Ollama</option>
                 </select>
             </div>
             <div style="margin-bottom: 15px;">
@@ -111,6 +112,14 @@
             <div style="margin-bottom: 15px;">
                 <label>OpenAI API Key:</label>
                 <input type="password" id="openaiApiKeyInput" placeholder="OpenAI API Key" style="width: 100%; padding: 8px; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 4px; margin-top: 5px;">
+            </div>
+            <div style="margin-bottom: 15px;" id="ollamaUrlContainer">
+                <label>Ollama URL:</label>
+                <input type="text" id="ollamaUrlInput" placeholder="http://localhost:11434" style="width: 100%; padding: 8px; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 4px; margin-top: 5px;">
+            </div>
+            <div style="margin-bottom: 15px;" id="ollamaModelContainer">
+                <label>Ollama Model Name:</label>
+                <input type="text" id="ollamaModelInput" placeholder="e.g., mistral, codellama" style="width: 100%; padding: 8px; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 4px; margin-top: 5px;">
             </div>
             <div style="margin-top: 15px;">
                 <button class="btn" id="saveModelConfigBtn">Save</button>

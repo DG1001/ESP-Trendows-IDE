@@ -10,6 +10,8 @@ class MicroPythonIDE {
         this.model = localStorage.getItem('model') || 'deepseek-chat';
         this.deepSeekApiKey = localStorage.getItem('deepSeekApiKey') || '';
         this.openaiApiKey = localStorage.getItem('openaiApiKey') || '';
+        this.ollamaUrl = localStorage.getItem('ollamaUrl') || 'http://localhost:11434';
+        this.ollamaModel = localStorage.getItem('ollamaModel') || '';
         this.diffEditor = null;
         this.diffEditorContainerDiv = null;
         this.originalEditorDiv = document.getElementById('editor');
@@ -28,6 +30,8 @@ class MicroPythonIDE {
         this.checkWebSerialSupport();
         document.getElementById('deepSeekApiKeyInput').value = this.deepSeekApiKey;
         document.getElementById('openaiApiKeyInput').value = this.openaiApiKey;
+        document.getElementById('ollamaUrlInput').value = this.ollamaUrl;
+        document.getElementById('ollamaModelInput').value = this.ollamaModel;
         document.getElementById('modelSelect').value = this.model;
         this.updateSendToModelButton();
     }
@@ -73,9 +77,13 @@ class MicroPythonIDE {
             this.model = document.getElementById('modelSelect').value;
             this.deepSeekApiKey = document.getElementById('deepSeekApiKeyInput').value;
             this.openaiApiKey = document.getElementById('openaiApiKeyInput').value;
+            this.ollamaUrl = document.getElementById('ollamaUrlInput').value;
+            this.ollamaModel = document.getElementById('ollamaModelInput').value;
             localStorage.setItem('model', this.model);
             localStorage.setItem('deepSeekApiKey', this.deepSeekApiKey);
             localStorage.setItem('openaiApiKey', this.openaiApiKey);
+            localStorage.setItem('ollamaUrl', this.ollamaUrl);
+            localStorage.setItem('ollamaModel', this.ollamaModel);
             document.getElementById('modelConfigModal').style.display = 'none';
             this.updateSendToModelButton();
         });
@@ -200,13 +208,60 @@ class MicroPythonIDE {
         sendToLlmBtn.disabled = true;
         sendToLlmBtn.innerHTML = '<span class="spinner"></span> Sending...';
 
-        let API_URL, apiKey;
+        let API_URL, apiKey, requestBody;
         if (this.model.startsWith('deepseek')) {
             API_URL = `https://api.deepseek.com/chat/completions`;
             apiKey = this.deepSeekApiKey;
+            requestBody = {
+                model: this.model,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPromptContent }
+                ],
+                temperature: 0.7,
+                // max_tokens: 2048, // Kann bei Bedarf angepasst werden
+            };
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            };
         } else if (this.model.startsWith('gpt')) {
             API_URL = `https://api.openai.com/v1/chat/completions`;
             apiKey = this.openaiApiKey;
+            requestBody = {
+                model: this.model,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPromptContent }
+                ],
+                temperature: 0.7,
+                // max_tokens: 2048, // Kann bei Bedarf angepasst werden
+            };
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            };
+        } else if (this.model === 'ollama') {
+            if (!this.ollamaModel) {
+                this.addToTerminal('\n❌ Please enter an Ollama model name.\n');
+                return;
+            }
+            API_URL = `${this.ollamaUrl}/api/chat`;
+            apiKey = ''; // Ollama doesn't require API key
+            requestBody = {
+                model: this.ollamaModel,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPromptContent }
+                ],
+                stream: false,
+                options: {
+                    temperature: 0.7
+                }
+            };
+            headers = {
+                'Content-Type': 'application/json'
+            };
         } else {
             this.addToTerminal('\n❌ Unsupported model selected.\n');
             return;
@@ -220,21 +275,6 @@ class MicroPythonIDE {
             userPromptContent = `Consider the following hardware configuration:\n<hardware_info>\n${this.hardwareContext}\n</hardware_info>\n\n${userPromptContent}`;
             this.addToTerminal('\nℹ️ Sending hardware context to LLM.\n');
         }
-
-        const requestBody = {
-            model: this.model,
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPromptContent }
-            ],
-            temperature: 0.7,
-            // max_tokens: 2048, // Kann bei Bedarf angepasst werden
-        };
-
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-        };
 
         console.log('DeepSeek API Request Body:', requestBody);
 
