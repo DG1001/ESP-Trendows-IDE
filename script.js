@@ -319,7 +319,7 @@ class MicroPythonIDE {
         this.editorContainerDiv.appendChild(this.diffEditorContainerDiv);
 
         this.diffEditor = monaco.editor.createDiffEditor(this.diffEditorContainerDiv, {
-            theme: 'vs-dark',
+            theme: this.currentTheme === 'dark' ? 'vs-dark' : 'vs',
             automaticLayout: true,
             readOnly: false, // Erlaube Bearbeitung in der "modified" Seite, falls gewünscht
             originalEditable: false, // Original sollte nicht bearbeitbar sein
