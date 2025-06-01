@@ -323,7 +323,7 @@ class MicroPythonIDE {
             this.addToTerminal(`\n❌ Error communicating with DeepSeek: ${error.message}\n`);
         } finally {
             sendToLlmBtn.disabled = false;
-            sendToLlmBtn.innerHTML = 'Send to DeepSeek';
+            sendToLlmBtn.innerHTML = 'Send to AI';
         }
     }
 
