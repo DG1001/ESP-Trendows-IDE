@@ -7,7 +7,9 @@ class MicroPythonIDE {
         this.currentFile = 'main.py';
         this.editor = editor;
         this.files = {'main.py': this.editor.getValue()};
+        this.model = localStorage.getItem('model') || 'deepseek-chat';
         this.deepSeekApiKey = localStorage.getItem('deepSeekApiKey') || '';
+        this.openaiApiKey = localStorage.getItem('openaiApiKey') || '';
         this.diffEditor = null;
         this.diffEditorContainerDiv = null;
         this.originalEditorDiv = document.getElementById('editor');
@@ -25,6 +27,8 @@ class MicroPythonIDE {
         this.initializeEventListeners();
         this.checkWebSerialSupport();
         document.getElementById('deepSeekApiKeyInput').value = this.deepSeekApiKey;
+        document.getElementById('openaiApiKeyInput').value = this.openaiApiKey;
+        document.getElementById('modelSelect').value = this.model;
     }
 
     checkWebSerialSupport() {
@@ -60,9 +64,18 @@ class MicroPythonIDE {
             this.files[this.currentFile] = this.editor.getValue();
         });
 
-        document.getElementById('deepSeekApiKeyInput').addEventListener('input', (e) => {
-            this.deepSeekApiKey = e.target.value;
+        document.getElementById('modelConfigBtn').addEventListener('click', () => {
+            document.getElementById('modelConfigModal').style.display = 'block';
+        });
+
+        document.getElementById('saveModelConfigBtn').addEventListener('click', () => {
+            this.model = document.getElementById('modelSelect').value;
+            this.deepSeekApiKey = document.getElementById('deepSeekApiKeyInput').value;
+            this.openaiApiKey = document.getElementById('openaiApiKeyInput').value;
+            localStorage.setItem('model', this.model);
             localStorage.setItem('deepSeekApiKey', this.deepSeekApiKey);
+            localStorage.setItem('openaiApiKey', this.openaiApiKey);
+            document.getElementById('modelConfigModal').style.display = 'none';
         });
 
         document.getElementById('themeToggleBtn').addEventListener('click', () => this.toggleTheme());
@@ -185,9 +198,20 @@ class MicroPythonIDE {
         sendToLlmBtn.disabled = true;
         sendToLlmBtn.innerHTML = '<span class="spinner"></span> Sending...';
 
-        const API_URL = `https://api.deepseek.com/chat/completions`;
+        let API_URL, apiKey;
+        if (this.model.startsWith('deepseek')) {
+            API_URL = `https://api.deepseek.com/chat/completions`;
+            apiKey = this.deepSeekApiKey;
+        } else if (this.model.startsWith('gpt')) {
+            API_URL = `https://api.openai.com/v1/chat/completions`;
+            apiKey = this.openaiApiKey;
+        } else {
+            this.addToTerminal('\n❌ Unsupported model selected.\n');
+            return;
+        }
+
         const systemPrompt = "You are a helpful assistant that generates MicroPython code for microcontrollers. Ensure the code is valid MicroPython and directly usable on devices like ESP32. Only output the Python code, without any surrounding text or explanations unless explicitly asked.";
-        
+            
         let userPromptContent = `${prompt}\n\nCurrent code in editor (if any, otherwise generate new code):\n\`\`\`python\n${originalCode}\n\`\`\``;
 
         if (this.hardwareContext) {
@@ -196,7 +220,7 @@ class MicroPythonIDE {
         }
 
         const requestBody = {
-            model: "deepseek-chat",
+            model: this.model,
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPromptContent }
@@ -205,15 +229,17 @@ class MicroPythonIDE {
             // max_tokens: 2048, // Kann bei Bedarf angepasst werden
         };
 
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        };
+
         console.log('DeepSeek API Request Body:', requestBody);
 
         try {
             const response = await fetch(API_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.deepSeekApiKey}`
-                },
+                headers: headers,
                 body: JSON.stringify(requestBody),
             });
 
