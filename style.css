@@ -13,6 +13,7 @@
     --terminal-bg: #0c0c0c;
     --terminal-color: #00ff00;
     --input-bg: #1e1e1e;
+    --file-item-hover-bg: #2a2d2e;
 }
 
 body.light-mode {
@@ -30,6 +31,7 @@ body.light-mode {
     --terminal-bg: #ffffff;
     --terminal-color: #006400;
     --input-bg: #ffffff;
+    --file-item-hover-bg: #e0e0e0;
 }
 
 * {
@@ -203,7 +205,7 @@ body {
 }
 
 .file-item:hover {
-    background: #2a2d2e;
+    background: var(--file-item-hover-bg);
 }
 
 .file-item.selected {
