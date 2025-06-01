@@ -217,7 +217,7 @@ class MicroPythonIDE {
             this.addToTerminal('\nℹ️ Sending hardware context to LLM.\n');
         }
 
-        let API_URL, apiKey, requestBody;
+        let API_URL, apiKey, requestBody, headers;
         if (this.model.startsWith('deepseek')) {
             API_URL = `https://api.deepseek.com/chat/completions`;
             apiKey = this.deepSeekApiKey;
