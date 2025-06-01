@@ -24,14 +24,15 @@ A simple web-based IDE for interacting with MicroPython devices (like ESP32) via
     *   Progress bar for file uploads.
     *   Clear terminal output.
     *   Resizable splitter between the code editor and REPL terminal.
-*   **LLM Integration (DeepSeek)**:
-    *   Input field for DeepSeek API key (stored in browser's Local Storage and masked).
-    *   Prompt input for code generation or modification.
-    *   System prompt to generate MicroPython code for microcontrollers.
-    *   Automatic loading of `hardware.txt` (if present as a file on the device) to provide hardware context to the LLM.
-    *   **Diff View**: Displays LLM changes compared to the current code.
-    *   Ability to accept or reject LLM changes.
-    *   Display of token usage (Prompt, Completion, Total) and estimated cost for each LLM request, as well as a total session cost.
+*   **LLM Integration (Multi-provider)**:
+    *   Model selection (DeepSeek, OpenAI, Ollama) and API key configuration via modal dialog
+    *   For Ollama: customizable URL and model name inputs
+    *   Send button label updates to show selected model (e.g., "Send to deepseek-chat")
+    *   System prompt to generate MicroPython code for microcontrollers
+    *   Automatic loading of `hardware.txt` for hardware context
+    *   **Diff View**: Displays LLM changes compared to current code
+    *   Ability to accept or reject LLM changes
+    *   Display of token usage (Prompt, Completion, Total) and estimated cost
 
 ## Usage
 
@@ -39,10 +40,11 @@ A simple web-based IDE for interacting with MicroPython devices (like ESP32) via
 2.  Click "Connect to ESP32" and select the serial port of your device.
 3.  Use the buttons in the toolbar to interact with the device, edit files, and execute code.
 4.  **For the LLM function**:
-    *   Enter your DeepSeek API key in the designated field in the toolbar. Token usage and estimated costs will be displayed next to it.
-    *   Enter a prompt in the field below the editor and click "Send to DeepSeek".
-    *   Review the changes suggested by the LLM in the diff view.
-    *   Click "Accept Changes" or "Reject".
+    *   Click "Models" button to open model configuration dialog
+    *   Select model provider (DeepSeek, OpenAI, Ollama) and enter API key(s)/settings
+    *   Enter prompt below editor and click send button (e.g., "Send to deepseek-chat")
+    *   Review LLM changes in diff view
+    *   Click "Accept Changes" or "Reject"
 5.  **For Hardware Context with LLM**:
     *   Ensure a file named `hardware.txt` exists in the root directory of your MicroPython device.
     *   This file should contain text descriptions of your hardware setup (e.g., "LED connected to GPIO 2", "Sensor on I2C pins X and Y").
